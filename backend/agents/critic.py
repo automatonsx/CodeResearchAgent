@@ -80,6 +80,19 @@ def critic_node(state: ReviewState) -> ReviewState:
             low_conf.append({"issue": f.get("issue", ""), "file": file, "line": line})
         kept.append(f)
 
+    # 5. PR mode: keep only findings on (or within ±2 of) a changed line, so we
+    # report what the PR introduced — not pre-existing issues on context lines.
+    changed = (state.get("context") or {}).get("changed_lines") or {}
+    if changed:
+        scoped = []
+        for f in kept:
+            cl = changed.get(f.get("file", ""), [])
+            if not cl or any(abs(int(f.get("line", 0)) - c) <= 2 for c in cl):
+                scoped.append(f)
+            else:
+                dropped.append({"issue": f.get("issue", ""), "reason": "outside changed lines"})
+        kept = scoped
+
     has_budget = state.get("iterations", 0) < MAX_ITERATIONS
     # Re-check when the Critic caught a hallucinated finding or flagged a weak one —
     # give the agents another pass (with this feedback) to self-correct.

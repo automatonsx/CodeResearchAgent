@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 from ..state import ReviewState
-from ..tools import parse_diff, clone_repo
+from ..tools import parse_diff, clone_repo, fetch_pr_diff
 
 _PY = {".py"}
 # Source files we review across languages (Python is tool-grounded; others via
@@ -61,8 +61,19 @@ def context_node(state: ReviewState) -> ReviewState:
     input_type = state.get("input_type", "repo")
     source = state["source"]
 
-    if input_type == "pr_diff":
-        parsed = parse_diff(source)
+    # PR review: accept either a pasted diff ("pr_diff") or a GitHub PR URL
+    # ("pr_url", or a URL pasted into pr_diff mode) which we fetch the diff for.
+    if input_type in ("pr_diff", "pr_url"):
+        diff_text = source
+        if input_type == "pr_url" or source.strip().lower().startswith("http"):
+            res = fetch_pr_diff(source)
+            if res.get("error"):
+                return {"context": {"input_type": input_type, "language": "unknown",
+                                    "review_path": "", "files": [], "py_files": [],
+                                    "other_files": [], "changed_lines": {},
+                                    "entry_points": [], "error": res["error"]}}
+            diff_text = res["diff"]
+        parsed = parse_diff(diff_text)
         tmp = Path(tempfile.mkdtemp(prefix="scout_diff_"))
         files, changed_lines = [], {}
         for rel, info in parsed["files"].items():
