@@ -19,6 +19,8 @@ dist/
 data/chroma/
 reports/*.md
 !reports/.gitkeep
+scout-review.md
+pr.diff
 
 # OS / editor
 .DS_Store
