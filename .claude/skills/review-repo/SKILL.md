@@ -25,12 +25,15 @@ Report) on a repo folder or a PR diff, then save the report.
    # PR-diff mode (pass the diff text/path as the first arg)
    python -m backend.graph "$(cat data/sample.diff)" pr_diff
    ```
-   (Or POST to a running API: `POST /review {"source": "...", "input_type": "..."}`.)
-3. Take the returned `final_report` JSON.
-4. Save it as Markdown to `reports/<slug>.md` with:
-   **Verdict + Score · Summary · Findings (severity, `file:line`, fix, tool evidence,
-   citation) · Stats (verified / dropped / loops)**.
-5. Print the path and a one-line verdict + score.
+   Append `--save` to also write a Markdown report to `reports/<slug>.md`:
+   ```bash
+   python -m backend.graph "data/sample_repo" repo --save
+   ```
+   (Or POST to a running API: `POST /review {"source": "...", "input_type": "...", "save": true}`
+   — the response includes `saved_to`.)
+3. The Markdown report contains: **Verdict + Score · Summary · Findings (severity,
+   `file:line`, fix, tool evidence, citation) · Coverage stats**.
+4. Print the saved path and a one-line verdict + score.
 
 ## Guarantees
 - No finding without a verifiable `file:line` (the Critic drops the rest).

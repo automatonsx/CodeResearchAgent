@@ -81,11 +81,16 @@ def critic_node(state: ReviewState) -> ReviewState:
         kept.append(f)
 
     has_budget = state.get("iterations", 0) < MAX_ITERATIONS
-    needs_recheck = bool(low_conf) and has_budget
+    # Re-check when the Critic caught a hallucinated finding or flagged a weak one —
+    # give the agents another pass (with this feedback) to self-correct.
+    hallucinated = [d for d in dropped if "hallucinated" in d.get("reason", "")]
+    needs_recheck = bool(low_conf or hallucinated) and has_budget
 
     notes = []
     if dropped:
         notes.append(f"Dropped {len(dropped)} unverifiable/duplicate finding(s).")
+    if hallucinated:
+        notes.append(f"{len(hallucinated)} finding(s) had quoted code that didn't match — re-checking.")
     if low_conf:
         notes.append(f"{len(low_conf)} low-confidence finding(s) need stronger evidence.")
 

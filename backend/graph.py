@@ -70,4 +70,9 @@ if __name__ == "__main__":
 
     src = sys.argv[1] if len(sys.argv) > 1 else "data/sample_repo"
     itype = sys.argv[2] if len(sys.argv) > 2 else "repo"
-    print(json.dumps(run(src, itype), indent=2))
+    report = run(src, itype)
+    print(json.dumps(report, indent=2))
+    if "--save" in sys.argv:
+        from .report_md import save_report
+
+        print(f"\nSaved Markdown report to: {save_report(report, src)}")

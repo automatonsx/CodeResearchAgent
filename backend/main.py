@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from .graph import build_graph, run
 from .state import initial_state
+from .report_md import save_report
 
 app = FastAPI(title="Scout — Research-Aware Code Review Assistant")
 
@@ -26,6 +27,7 @@ app.add_middleware(
 class ReviewRequest(BaseModel):
     source: str                 # repo folder path, GitHub URL, or unified-diff text
     input_type: str = "repo"    # "repo" | "github" | "pr_diff"
+    save: bool = False          # also write a Markdown report to reports/
 
 
 @app.get("/health")
@@ -36,7 +38,11 @@ def health() -> dict:
 @app.post("/review")
 def review(req: ReviewRequest) -> dict:
     """Run the review graph to completion and return the final report."""
-    return {"report": run(req.source, req.input_type)}
+    report = run(req.source, req.input_type)
+    out = {"report": report}
+    if req.save:
+        out["saved_to"] = save_report(report, req.source)
+    return out
 
 
 @app.post("/review/stream")

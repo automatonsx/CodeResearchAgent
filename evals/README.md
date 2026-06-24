@@ -1,18 +1,28 @@
-# evals/ — planted-issue evaluation (stretch)
+# evals/ — planted-issue evaluation
 
-Measure review quality with a repo whose issues we already know.
+Measure review quality on a repo whose issues we already know.
 
-## Idea
-1. A test repo (e.g. `data/sample_repo`) with **planted, labelled issues**
-   (`expected.json`: file, line, type).
-2. Run the review graph over it.
-3. Compare verified findings to the labels → **precision / recall**:
-   - precision = real findings / all reported findings (false-positive rate)
-   - recall = planted issues found / all planted issues
-4. Track scores across changes; fail CI if precision/recall drop below a threshold.
+## Run
+```bash
+# from the repo root (backend venv active)
+python -m evals.score
+```
 
-## Files (to add)
-- `expected.json` — ground-truth labels for the planted issues.
-- `score.py` — runs the graph, matches findings to labels, prints precision/recall.
+## What it reports
+- **Recall** — how many of the planted issues in `expected.json` we caught.
+- **Critic ablation** — findings **before vs. after** the Critic, i.e. how many false /
+  duplicate / hallucinated findings it dropped. This is the measured anti-hallucination
+  effect.
+- **Tool-grounded ratio** — fraction of kept findings backed by a tool rule (high precision).
 
-This is the quantitative answer to *"how do you know the Critic reduces hallucination?"*
+## Files
+- `expected.json` — the answer key: `{file, line, type, what}` per planted issue.
+  A finding matches a label by **file basename + line (±2)**.
+- `score.py` — runs the pipeline once (no loop) so it can compare pre- vs post-Critic.
+
+## Why precision is reported this way
+The label set targets the **planted critical issues**, not every lint nit, so a raw
+precision number against it would unfairly count legitimate extra findings as "wrong."
+Instead we report the **tool-grounded ratio** + **Critic drop count** as the precision
+evidence. To get a classic precision number, expand `expected.json` to label *every*
+expected finding in the target.

@@ -1,0 +1,14 @@
+{
+  "target": "data/sample_repo",
+  "input_type": "repo",
+  "note": "Planted, known issues. Recall = how many we catch. A finding matches a label by file basename + line (within +/-2).",
+  "labels": [
+    {"file": "auth.py", "line": 4,  "type": "security", "what": "hardcoded API key / secret"},
+    {"file": "auth.py", "line": 11, "type": "security", "what": "SQL injection via string formatting"},
+    {"file": "auth.py", "line": 15, "type": "code",     "what": "bare except"},
+    {"file": "auth.py", "line": 20, "type": "security", "what": "subprocess shell=True (command injection)"},
+    {"file": "auth.py", "line": 24, "type": "security", "what": "use of eval()"},
+    {"file": "utils.py", "line": 1,  "type": "code",     "what": "mutable default argument"},
+    {"file": "utils.py", "line": 24, "type": "code",     "what": "unused local variable"}
+  ]
+}
