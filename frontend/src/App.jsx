@@ -68,6 +68,7 @@ export default function App() {
           <span className="pill">🔧 Tool-grounded</span>
           <span className="pill">🛡️ Critic-verified</span>
           <span className="pill">📚 Cited</span>
+          <span className="pill">🔀 Inline PR review</span>
         </div>
       </header>
 
