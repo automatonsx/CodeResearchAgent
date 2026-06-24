@@ -1,0 +1,100 @@
+[
+  {
+    "id": "bp-secrets",
+    "title": "Never hardcode secrets",
+    "principle": "Credentials, API keys, and passwords must never be committed in source. Load them from environment variables or a secrets manager so they can be rotated without code changes.",
+    "source": "OWASP Secrets Management Cheat Sheet",
+    "tags": ["security", "secrets", "S105", "S106", "S107"]
+  },
+  {
+    "id": "bp-sql-injection",
+    "title": "Use parameterized queries",
+    "principle": "Build SQL with bound parameters, never string concatenation or f-strings on user input. Parameterization is the primary defense against SQL injection.",
+    "source": "OWASP Top 10 A03:2021 — Injection",
+    "tags": ["security", "injection", "sql", "S608"]
+  },
+  {
+    "id": "bp-shell-injection",
+    "title": "Avoid shell=True with untrusted input",
+    "principle": "Passing shell=True to subprocess invites command injection. Prefer passing an argument list and shell=False so arguments are not re-parsed by a shell.",
+    "source": "Python docs — subprocess security considerations",
+    "tags": ["security", "injection", "subprocess", "S602", "S605"]
+  },
+  {
+    "id": "bp-eval",
+    "title": "Do not use eval/exec on dynamic input",
+    "principle": "eval and exec execute arbitrary code. Use ast.literal_eval for data, or an explicit dispatch table for behavior.",
+    "source": "Python docs — ast.literal_eval; Bandit B307",
+    "tags": ["security", "eval", "S307"]
+  },
+  {
+    "id": "bp-bare-except",
+    "title": "Never use bare except",
+    "principle": "A bare 'except:' swallows everything including KeyboardInterrupt and SystemExit, hiding bugs. Catch the specific exception types you expect.",
+    "source": "PEP 8 — Programming Recommendations",
+    "tags": ["code", "error-handling", "E722"]
+  },
+  {
+    "id": "bp-swallow-exception",
+    "title": "Don't silently swallow exceptions",
+    "principle": "try/except/pass discards errors with no trace. At minimum log the exception so failures are observable.",
+    "source": "Bandit B110; Google Python Style Guide",
+    "tags": ["code", "error-handling", "logging", "S110"]
+  },
+  {
+    "id": "bp-mutable-default",
+    "title": "Avoid mutable default arguments",
+    "principle": "A list/dict default is created once and shared across calls, causing state to leak between invocations. Default to None and create the container inside the function.",
+    "source": "Python Common Gotchas; Ruff B006",
+    "tags": ["code", "bug", "B006", "AST-MUT"]
+  },
+  {
+    "id": "bp-complexity",
+    "title": "Keep functions simple",
+    "principle": "High cyclomatic complexity correlates with defects and makes code hard to test. Extract helpers and reduce branching when complexity exceeds ~10.",
+    "source": "McCabe, 'A Complexity Measure' (1976); Ruff C901",
+    "tags": ["code", "complexity", "maintainability", "C901", "AST-CX"]
+  },
+  {
+    "id": "bp-dead-code",
+    "title": "Remove dead/unused code",
+    "principle": "Unused variables and imports add noise and can hide bugs. Delete them; tools like ruff flag F401/F841.",
+    "source": "Ruff Pyflakes rules; Clean Code (Martin)",
+    "tags": ["code", "dead-code", "F401", "F841"]
+  },
+  {
+    "id": "bp-docstrings",
+    "title": "Document public functions",
+    "principle": "Public functions and modules should have docstrings describing intent, args, and return values so callers don't have to read the implementation.",
+    "source": "PEP 257 — Docstring Conventions",
+    "tags": ["style", "docs", "AST-DOC"]
+  },
+  {
+    "id": "bp-tests",
+    "title": "Cover changed logic with tests",
+    "principle": "New or modified behavior should ship with tests. Untested branches are the most common source of regressions.",
+    "source": "Google Testing Blog; Working Effectively with Legacy Code",
+    "tags": ["test", "coverage", "missing-tests"]
+  },
+  {
+    "id": "bp-input-validation",
+    "title": "Validate and sanitize external input",
+    "principle": "Treat all external input as untrusted. Validate type, range, and format at the boundary before use.",
+    "source": "OWASP Input Validation Cheat Sheet",
+    "tags": ["security", "validation", "robustness"]
+  },
+  {
+    "id": "bp-logging",
+    "title": "Use logging, not print",
+    "principle": "Use the logging module instead of print so output has levels, can be filtered, and routed to handlers in production.",
+    "source": "Python Logging HOWTO",
+    "tags": ["style", "logging", "observability"]
+  },
+  {
+    "id": "bp-type-hints",
+    "title": "Add type hints to public APIs",
+    "principle": "Type hints catch whole classes of bugs via static analysis and document intent. Annotate public function signatures.",
+    "source": "PEP 484 — Type Hints",
+    "tags": ["style", "types", "maintainability"]
+  }
+]

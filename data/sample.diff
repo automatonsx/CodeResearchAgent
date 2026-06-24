@@ -1,0 +1,20 @@
+diff --git a/payments.py b/payments.py
+index 1111111..2222222 100644
+--- a/payments.py
++++ b/payments.py
+@@ -1,3 +1,16 @@
++import os
++import subprocess
++
++STRIPE_KEY = "sk_live_51H8xQe2eZvKYlo2C0aBcDeFgHiJk"
++
++def charge(user_input, amount):
++    query = "INSERT INTO charges VALUES ('%s', %s)" % (user_input, amount)
++    subprocess.call("psql -c \"" + query + "\"", shell=True)
++    try:
++        do_charge(amount)
++    except:
++        pass
++
+ def refund(charge_id):
+     return True
