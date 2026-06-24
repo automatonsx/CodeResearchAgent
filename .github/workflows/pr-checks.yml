@@ -83,20 +83,13 @@ jobs:
         if: steps.gate.outputs.configured == 'true'
         run: gh pr diff ${{ github.event.pull_request.number }} --patch > pr.diff
 
-      - name: Run Scout review
+      - name: Run Scout review (posts inline PR comments)
         if: steps.gate.outputs.configured == 'true'
-        run: |
-          python - <<'PY'
-          import pathlib
-          from backend.graph import run
-          from backend.report_md import report_to_markdown
-          diff = pathlib.Path("pr.diff").read_text(encoding="utf-8")
-          report = run(diff, "pr_diff")
-          md = report_to_markdown(report, "PR diff")
-          header = f"## 🛡️ Scout AI Review\n\n_Automated, tool-grounded review — see checks for details._\n\n"
-          pathlib.Path("scout-review.md").write_text(header + md, encoding="utf-8")
-          print("verdict:", report.get("verdict"), "score:", report.get("score"))
-          PY
+        continue-on-error: true   # forks have a read-only token; don't fail the run
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_DIFF_FILE: pr.diff
+        run: python -m backend.notify.github_review
 
       - name: Upload review artifact
         if: steps.gate.outputs.configured == 'true'
@@ -104,8 +97,3 @@ jobs:
         with:
           name: scout-review
           path: scout-review.md
-
-      - name: Comment review on the PR
-        if: steps.gate.outputs.configured == 'true'
-        continue-on-error: true   # forks have a read-only token; don't fail the run
-        run: gh pr comment ${{ github.event.pull_request.number }} --body-file scout-review.md
