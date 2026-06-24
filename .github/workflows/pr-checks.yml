@@ -1,0 +1,111 @@
+name: PR Checks
+
+# Runs on every pull request (and pushes to main).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write   # so the Scout job can comment on the PR
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Static checks (no secrets needed) ──────────────────────────────
+  lint-and-compile:
+    name: Lint & compile (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Ruff lint
+        run: ruff check backend evals
+      - name: Byte-compile backend
+        run: python -m compileall -q backend evals
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install & build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  # ── Scout reviews the PR (needs Azure OpenAI secrets) ──────────────
+  scout-review:
+    name: Scout AI review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    env:
+      # Set these in repo Settings → Secrets and variables → Actions.
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if secrets are not configured
+        id: gate
+        run: |
+          if [ -z "$AZURE_OPENAI_API_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Azure OpenAI secrets not set — skipping Scout review."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.configured == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        if: steps.gate.outputs.configured == 'true'
+        run: pip install -r backend/requirements.txt
+
+      - name: Get the PR diff
+        if: steps.gate.outputs.configured == 'true'
+        run: gh pr diff ${{ github.event.pull_request.number }} --patch > pr.diff
+
+      - name: Run Scout review
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          python - <<'PY'
+          import pathlib
+          from backend.graph import run
+          from backend.report_md import report_to_markdown
+          diff = pathlib.Path("pr.diff").read_text(encoding="utf-8")
+          report = run(diff, "pr_diff")
+          md = report_to_markdown(report, "PR diff")
+          header = f"## 🛡️ Scout AI Review\n\n_Automated, tool-grounded review — see checks for details._\n\n"
+          pathlib.Path("scout-review.md").write_text(header + md, encoding="utf-8")
+          print("verdict:", report.get("verdict"), "score:", report.get("score"))
+          PY
+
+      - name: Upload review artifact
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scout-review
+          path: scout-review.md
+
+      - name: Comment review on the PR
+        if: steps.gate.outputs.configured == 'true'
+        continue-on-error: true   # forks have a read-only token; don't fail the run
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file scout-review.md

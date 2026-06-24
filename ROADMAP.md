@@ -29,7 +29,8 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 ## 🌭 Later (the bigger vision)
 - [ ] The 5 domain agents (distributed systems, ML, DB, API, scalability).
 - [ ] Real research corpus (arxiv/IEEE) instead of the curated mini-corpus.
-- [ ] GitHub Action posting inline PR comments.
+- [x] GitHub Action that reviews the PR + posts a summary comment
+      (`.github/workflows/pr-checks.yml`). Next: **inline** line comments.
 - [ ] Large-repo chunking (beyond the ~40-file cap).
 - [ ] "Learns team preferences" memory; PDF export; auth/multi-user.
 - [ ] Observability: token/cost metrics, traces.

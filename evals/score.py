@@ -15,8 +15,7 @@ from pathlib import Path
 
 from backend.state import initial_state
 from backend.agents import (
-    context_node, code_quality_node, security_node, grounding_node,
-    critic_node, report_node,
+    context_node, code_quality_node, security_node, grounding_node, critic_node,
 )
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -66,8 +65,9 @@ def main() -> None:
     print(f"Target: {spec['target']}  ({len(labels)} planted issues)")
     print("-" * 60)
     print("CRITIC ABLATION")
-    print(f"  findings before Critic : {len(pre)}")
-    print(f"  findings after  Critic : {len(post)}  ({len(dropped)} dropped)")
+    print(f"  findings before Critic : {len(pre)}  (recall {len(pre_hits)}/{len(labels)})")
+    print(f"  findings after  Critic : {len(post)}  ({len(dropped)} dropped, "
+          f"recall {len(post_hits)}/{len(labels)})")
     for d in dropped:
         print(f"    - dropped: {d.get('reason')}  ({str(d.get('issue',''))[:48]})")
     print("-" * 60)

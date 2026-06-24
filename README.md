@@ -126,4 +126,16 @@ python -m backend.graph "$(cat data/sample.diff)" pr_diff
 └── reports/                      # saved reports (review-repo output)
 ```
 
+## CI — PR checks
+
+[.github/workflows/pr-checks.yml](.github/workflows/pr-checks.yml) runs on every PR:
+- **Lint & compile** (ruff + `compileall`) and **frontend build** — always run, no secrets.
+- **Scout AI review** — fetches the PR diff, runs the review graph, posts the report as a
+  PR comment + uploads it as an artifact. Runs only if Azure OpenAI secrets are set.
+
+To enable the Scout review job, add these in **Settings → Secrets and variables → Actions**:
+`AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`,
+`AZURE_OPENAI_API_VERSION`. (`GITHUB_TOKEN` is provided automatically.) Without them, that
+job skips cleanly and the static checks still run.
+
 See [DESIGN.md](DESIGN.md) for the architecture rationale and the 2-week roadmap.
