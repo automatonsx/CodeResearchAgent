@@ -15,18 +15,20 @@ tools (`ruff`/`ast`/`semgrep`) and the **Critic verify** before anything is show
 | Agent | Job | Grounded by |
 |-------|-----|-------------|
 | **Context Extractor** | Detect languages, find source files to review | file walk / diff parse |
-| **Code-Quality Agent** | Smells, complexity, dead code, missing tests | `ruff`+`ast` (Python); LLM reviewer (other langs) |
-| **Security Agent** | Secrets, injection, unsafe calls | `ruff` bandit (`S`), `semgrep`*, generic secret/pattern scan |
+| **Code-Quality Agent** | Smells, complexity, dead code, missing tests | `ruff`+`ast` (Python), `eslint` (JS/TS); LLM reviewer (other langs) |
+| **Security Agent** | Secrets, injection, unsafe calls | `ruff` bandit (`S`), `eslint` (no-eval…), `semgrep`*, generic secret/pattern scan |
 | **Grounding** | Attach a best-practice citation to each finding | ChromaDB corpus |
 | **Critic** | Re-open each `file:line`; drop false positives → loop | re-reads + verifies quoted code |
 | **Report Generator** | Prioritize, score, verdict, summary | — |
 
 \* semgrep is optional (poor native-Windows support); ruff's `S` rules + AST are the fallback.
 
-**Languages:** any. **Python** is deeply tool-grounded (ruff + ast). **Other languages**
-(JS/TS, Go, Java, Ruby, PHP, C/C++, …) are reviewed by a language-agnostic secret/pattern
-scanner (ground truth) + an LLM reviewer whose findings the **Critic verifies** by
-re-checking the quoted code — so hallucinated findings get dropped.
+**Languages:** any. **Python** (ruff + ast) and **JS/TS** (eslint) are deeply
+**tool-grounded**. **Other languages** (Go, Java, Ruby, PHP, C/C++, …) are reviewed by a
+language-agnostic secret/pattern scanner (ground truth) + an LLM reviewer whose findings
+the **Critic verifies** by re-checking the quoted code — so hallucinated findings get
+dropped. (eslint is optional, like semgrep — set it up below; otherwise JS falls back to
+the LLM reviewer.)
 
 ### Orchestration graph (the twist 🟡)
 
@@ -79,6 +81,9 @@ uvicorn backend.main:app --reload           # http://localhost:8000
 # 2. Frontend (React + Vite) — second terminal
 cd frontend
 npm install && npm run dev                   # http://localhost:5173
+
+# 3. (Optional) eslint ground-truth for JS/TS — without this, JS uses the LLM reviewer
+cd backend/tools/eslint_env && npm install
 ```
 
 Open http://localhost:5173 and pick an input:

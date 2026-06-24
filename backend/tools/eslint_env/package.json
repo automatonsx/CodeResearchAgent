@@ -1,0 +1,10 @@
+{
+  "name": "scout-eslint",
+  "private": true,
+  "type": "module",
+  "description": "Isolated eslint environment Scout uses to lint JS/TS as ground truth.",
+  "dependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0"
+  }
+}

@@ -8,6 +8,7 @@ Declare every reused repo, template, tool, or snippet, and list the custom featu
 | [LangGraph](https://langchain-ai.github.io/langgraph/) | State graph + conditional Critic loop | MIT |
 | [LangChain](https://python.langchain.com/) | LLM wiring (`langchain-openai`) | MIT |
 | [ruff](https://docs.astral.sh/ruff/) | Ground-truth lint (E/F/W/C90/B) + bandit (S) security | MIT |
+| [eslint](https://eslint.org/) + `@eslint/js` | Ground-truth lint for JS/TS (optional) | MIT |
 | [semgrep](https://semgrep.dev/) (optional) | Additional security scanning | LGPL-2.1 |
 | Python `ast` (stdlib) | Complexity / docstring / mutable-default checks | PSF |
 | [ChromaDB](https://www.trychroma.com/) | Best-practices corpus (RAG citations) | Apache-2.0 |

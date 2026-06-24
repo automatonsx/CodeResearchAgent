@@ -14,11 +14,12 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 - FastAPI (`/review`, `/review/stream`) + React glass-box UI.
 - Skills: `review-repo`, `build-corpus`. Docs, sample data, Dockerfile.
 - **Eval harness**: `evals/score.py` — recall on planted issues + Critic ablation.
+- **eslint** ground truth for JS/TS (optional, like semgrep; bundled flat config in
+  `backend/tools/eslint_env`). Falls back to the LLM reviewer if not installed.
 
 ## 🔜 Next (near-term gaps)
-- [ ] **eslint** as ground truth for JS/TS (today JS uses the LLM reviewer). Optional, like
-      semgrep — detect + run if available, fall back to the LLM otherwise.
-- [ ] **Verify Docker** — build & run `deployment/Dockerfile` end-to-end.
+- [ ] **Verify Docker** — build & run `deployment/Dockerfile` end-to-end (also bundle the
+      eslint env into the image).
 - [ ] **Filter findings to changed lines** in PR-diff mode (use `context.changed_lines`)
       so it comments only on what the PR touched.
 - [ ] **PR-URL input** — fetch a GitHub PR's diff via the API (needs a token).

@@ -3,10 +3,12 @@
 Honest statement of what Scout does not do and where it can fail. (Stating these scores.)
 
 ## Out of scope (by design — see the roadmap in DESIGN.md §10)
-- **Grounding depth varies by language.** Python is deeply tool-grounded (ruff + ast).
-  Other languages (JS/TS/Go/Java/…) are reviewed by a language-agnostic secret/pattern
-  scanner (ground truth) **plus** an LLM reviewer whose findings the Critic verifies by
-  re-checking the quoted code. Dedicated linters per language (eslint, etc.) are roadmap.
+- **Grounding depth varies by language.** Python (ruff + ast) and JS/TS (eslint) are
+  deeply tool-grounded. Other languages (Go/Java/Ruby/PHP/C…) are reviewed by a
+  language-agnostic secret/pattern scanner (ground truth) **plus** an LLM reviewer whose
+  findings the Critic verifies by re-checking the quoted code. Per-language linters for
+  those (gopls, etc.) are roadmap. eslint is optional — without its env, JS falls back to
+  the LLM reviewer.
 - **Small/medium repos.** Large repos need chunking (a soft ~40-file cap applies now).
 - **Curated mini-corpus** (~13 best-practice entries), not full academic literature.
 - **Proposes fixes; does NOT auto-merge** or open PRs.
