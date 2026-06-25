@@ -1,15 +1,12 @@
-"""Architecture & Design agent — KB-grounded + web-research-enriched review.
+"""Architecture & Design agent — KB + best_practices corpus grounded review.
 
 Flow:
-  1. Build architecture-specific search queries from the review context.
-  2. Run web research in parallel (Tavily → Semantic Scholar + ArXiv fallback).
-  3. Load the project KB for the reviewed files (may be empty for external repos).
-  4. Pass file content + KB + web research to the LLM.
-  5. Validate and annotate findings with KB and web-research citations.
-
-Unlike the original implementation, this node runs for *any* repo — not just ones that
-match the internal KB. For repos without a KB match, findings are grounded solely in the
-file content and web research.
+  1. Read file content (capped per file).
+  2. Load project KB for the reviewed files.
+  3. Query ChromaDB (best_practices.json) for architecture best practices relevant
+     to the detected language/patterns — no web search.
+  4. Pass file content + KB + corpus practices to the LLM.
+  5. Validate findings against actually reviewed files.
 """
 
 from __future__ import annotations
@@ -21,23 +18,49 @@ from pathlib import Path
 from ..state import ReviewState
 from ..llm import chat_json, load_prompt
 from ..knowledge.retrieve import relevant_kb
-from ..tools.web_research import research_for_architecture, build_architecture_queries
+from ..corpus.build_index import retrieve as corpus_retrieve
 
 _MAX_FILES = 12
 _MAX_CHARS = 2500
-_MAX_WEB_RESULTS = 9   # cap passed to LLM to keep prompt size reasonable
+_MAX_CORPUS_HITS = 8
+
+
+def _corpus_for_architecture(language: str, file_names: list[str]) -> list[dict]:
+    """Query best_practices.json corpus for architecture-relevant practices."""
+    queries = [
+        f"{language} architecture design patterns",
+        "separation of concerns module structure",
+        "code organization maintainability",
+    ]
+    seen: set[str] = set()
+    hits: list[dict] = []
+    for q in queries:
+        for h in corpus_retrieve(q, k=4):
+            pid = h.get("practice_id") or h.get("title", "")
+            if pid and pid not in seen:
+                seen.add(pid)
+                hits.append({
+                    "practice_id": pid,
+                    "title": h.get("title", ""),
+                    "principle": h.get("principle", ""),
+                    "source": h.get("source", ""),
+                })
+            if len(hits) >= _MAX_CORPUS_HITS:
+                break
+        if len(hits) >= _MAX_CORPUS_HITS:
+            break
+    return hits
 
 
 def architecture_node(state: ReviewState) -> ReviewState:
     ctx = state.get("context", {})
     review_path = ctx.get("review_path") or ""
     files = ctx.get("files", [])
+    language = ctx.get("language", "unknown")
     if not files or not review_path:
         return {}
 
-    # ------------------------------------------------------------------ #
-    # 1. Build rel-path → abs-path mapping                               #
-    # ------------------------------------------------------------------ #
+    # ── 1. Build rel-path → abs-path mapping ─────────────────────────────
     rel_to_abs: dict[str, str] = {}
     for f in files:
         try:
@@ -46,9 +69,7 @@ def architecture_node(state: ReviewState) -> ReviewState:
             rel = os.path.basename(f)
         rel_to_abs[rel] = f
 
-    # ------------------------------------------------------------------ #
-    # 2. Read file content (capped)                                       #
-    # ------------------------------------------------------------------ #
+    # ── 2. Read file content (capped) ────────────────────────────────────
     reviewed: list[dict] = []
     for rel, absf in list(rel_to_abs.items())[:_MAX_FILES]:
         try:
@@ -69,37 +90,25 @@ def architecture_node(state: ReviewState) -> ReviewState:
             entry["truncated"] = True
         reviewed.append(entry)
 
-    # ------------------------------------------------------------------ #
-    # 3. Web research — run before KB lookup so we can skip if both empty #
-    # ------------------------------------------------------------------ #
-    queries = build_architecture_queries(ctx, reviewed)
-    web_results = research_for_architecture(queries, max_per_query=3)
-    # Trim to keep LLM prompt manageable
-    web_results_for_prompt = web_results[:_MAX_WEB_RESULTS]
-
-    # ------------------------------------------------------------------ #
-    # 4. Project knowledge base (optional)                                #
-    # ------------------------------------------------------------------ #
+    # ── 3. Project KB (optional) ─────────────────────────────────────────
     kb = relevant_kb(list(rel_to_abs.keys()))
     has_kb = bool(kb.get("modules"))
 
-    # Skip if we have neither KB nor web research — nothing to ground on
-    if not has_kb and not web_results_for_prompt:
+    # ── 4. Corpus best practices (best_practices.json via ChromaDB) ───────
+    corpus_hits = _corpus_for_architecture(language, list(rel_to_abs.keys()))
+
+    # Skip if nothing to ground on
+    if not has_kb and not corpus_hits:
         return {}
 
-    # ------------------------------------------------------------------ #
-    # 5. Build LLM payload and call                                       #
-    # ------------------------------------------------------------------ #
-    # Collect issues already reported by prior agents so the architecture
-    # LLM does not duplicate them as design findings.
+    # ── 5. Collect prior findings to avoid duplication ───────────────────
     prior_findings = state.get("findings", [])
     already_reported = []
     for f in prior_findings:
-        rel = ""
         try:
             rel = os.path.relpath(f.get("file", ""), review_path).replace("\\", "/")
         except Exception:
-            pass
+            rel = ""
         issue_text = (f.get("issue") or "")[:100]
         if issue_text:
             already_reported.append({
@@ -108,9 +117,10 @@ def architecture_node(state: ReviewState) -> ReviewState:
                 "issue": issue_text,
             })
 
+    # ── 6. Build LLM payload ──────────────────────────────────────────────
     payload: dict = {
         "reviewed_files": reviewed,
-        "web_research": web_results_for_prompt,
+        "corpus_best_practices": corpus_hits,
         "already_reported_issues": already_reported,
     }
     if has_kb:
@@ -126,20 +136,18 @@ def architecture_node(state: ReviewState) -> ReviewState:
     except Exception:
         recs = []
 
-    # ------------------------------------------------------------------ #
-    # 6. Validate, annotate, and return findings                          #
-    # ------------------------------------------------------------------ #
+    # ── 7. Validate and annotate findings ────────────────────────────────
     valid_rel = set(rel_to_abs)
-    web_url_set = {r["url"] for r in web_results if r.get("url")}
+    corpus_ids = {h["practice_id"] for h in corpus_hits}
 
     findings: list[dict] = []
     for r in recs:
         rel = (r.get("file") or "").replace("\\", "/")
         if rel not in valid_rel:
-            continue  # must reference a real reviewed file
+            continue
 
         r["file"] = rel_to_abs[rel]
-        r["line"] = 0                   # module/file-level; not line-anchored
+        r["line"] = 0
         r.setdefault("type", "design")
         r.setdefault("severity", "suggestion")
         r.setdefault("effort", "medium")
@@ -149,25 +157,20 @@ def architecture_node(state: ReviewState) -> ReviewState:
         r["tool_grounded"] = False
         r["kb_grounded"] = has_kb and bool(r.get("kb_module"))
 
-        # Build research_basis from KB and web citations
+        # Build research_basis from KB and corpus citations only
         basis: list[str] = []
         if r.get("kb_module") and has_kb:
             basis.append(f"KB: {r['kb_module']}")
-
-        # Validate web citations — only keep refs whose URLs actually appeared in results
-        safe_refs = [
-            ref for ref in (r.get("research_refs") or [])
-            if isinstance(ref, dict) and ref.get("url") in web_url_set
-        ]
-        for ref in safe_refs:
-            basis.append(f"{ref.get('title', 'Web ref')} — {ref['url']}")
-        r["research_refs"] = safe_refs
+        # Validate corpus refs — only keep ones that were actually in the lookup
+        for ref in (r.get("research_refs") or []):
+            if isinstance(ref, dict):
+                pid = ref.get("practice_id", "")
+                if pid in corpus_ids:
+                    basis.append(f"{ref.get('title', pid)} — {ref.get('source', '')}")
         r["research_basis"] = basis if basis else r.get("research_basis", [])
+        r.pop("research_refs", None)
 
         findings.append(r)
 
     other = [f for f in state.get("findings", []) if f.get("category") != "design"]
-    return {
-        "findings": other + findings,
-        "web_research": web_results,   # persist full result set in state for the report
-    }
+    return {"findings": other + findings}

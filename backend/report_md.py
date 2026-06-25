@@ -21,8 +21,6 @@ _CATEGORY_META = {
     "testing":      ("🧪", "Test Coverage"),
 }
 
-_SOURCE_ICON = {"paper": "📄", "preprint": "📝", "web": "🌐"}
-
 
 def _slug(text: str) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (text or "review").lower()).strip("-")
@@ -88,7 +86,6 @@ def _analysis_quality_section(aq: dict) -> list[str]:
     ver_rate = aq.get("verification_rate", 0.0)
     grounding = aq.get("grounding", {})
     coverage = aq.get("coverage", {})
-    web = aq.get("web_research", {})
     hall = aq.get("hallucination", {})
     kept = aq.get("findings_kept", 0)
     total = kept + aq.get("findings_dropped", 0)
@@ -106,9 +103,8 @@ def _analysis_quality_section(aq: dict) -> list[str]:
         f"| Overall Confidence | **{overall_conf:.0%}** | Weighted avg of per-finding scores |",
         f"| Critic Verification Rate | {ver_rate:.0%} | {kept}/{total} findings survived Critic |",
         f"| Tool-Grounded Findings | {tool_n}/{kept} ({grounding.get('tool_grounded_pct', 0):.0%}) | Deterministic scanner output |",
-        f"| Research Citation Rate | {grounding.get('citation_rate', 0):.0%} | Findings with web or corpus citation |",
+        f"| Corpus Citation Rate | {grounding.get('citation_rate', 0):.0%} | Findings with best-practices corpus citation |",
         f"| File Coverage | {files_rev}/{files_rev + files_skip} ({coverage.get('coverage_pct', 0):.0%}) | Source files actually analyzed |",
-        f"| Web Sources | {web.get('sources_fetched', 0)} fetched / {web.get('sources_cited', 0)} cited | Cite rate: {web.get('cite_rate', 0):.0%} |",
         f"| Hallucinations Caught | {hall.get('count', 0)} ({hall.get('rate', 0):.0%} of LLM findings) | Dropped by Critic quote-match check |",
         "",
         "> **How to read this:** The grade reflects how much of the analysis is anchored in",
@@ -126,11 +122,10 @@ def report_to_markdown(report: dict, source: str = "") -> str:
     score = report.get("score")
     score_str = "n/a" if score is None else f"{score}/10"
     stats = report.get("stats", {})
-    web_sources = report.get("web_research_sources", [])
     all_findings = report.get("recommendations", [])
 
     lines = [
-        "# Scout — Research-Aware Code Review Report",
+        "# Scout Code Review Report",
         "",
         f"**Verdict:** {_VERDICT.get(report.get('verdict'), report.get('verdict'))}  ",
         f"**Score:** {score_str}  ",
@@ -144,8 +139,6 @@ def report_to_markdown(report: dict, source: str = "") -> str:
             f"{stats.get('reviewed', '?')} file(s) reviewed",
             f"language: {stats.get('language', '?')}",
         ]
-        if stats.get("web_sources"):
-            parts.append(f"{stats['web_sources']} web sources consulted")
         if stats.get("grade"):
             grade = stats["grade"]
             parts.append(f"analysis grade: {_GRADE_ICON.get(grade, '')} {grade}")
@@ -173,34 +166,6 @@ def report_to_markdown(report: dict, source: str = "") -> str:
         for f in findings:
             lines += _finding_block(f, source)
         lines += ["---", ""]
-
-    # Web research sources
-    if web_sources:
-        lines += ["## 🔍 Web Research Sources", ""]
-        lines.append(
-            "The following papers, articles, and resources were retrieved and used to "
-            "ground architectural, security, and testing recommendations:"
-        )
-        lines.append("")
-        by_type: dict[str, list[dict]] = {}
-        for s in web_sources:
-            by_type.setdefault(s.get("source_type", "web"), []).append(s)
-
-        for stype in ("paper", "preprint", "web"):
-            items = by_type.get(stype, [])
-            if not items:
-                continue
-            icon = _SOURCE_ICON.get(stype, "🌐")
-            label = {"paper": "Academic Papers", "preprint": "Preprints (ArXiv)", "web": "Articles & Guides"}.get(stype, stype.title())
-            lines.append(f"### {icon} {label}")
-            lines.append("")
-            for s in items:
-                title = s.get("title", "Untitled")
-                url = s.get("url", "")
-                query = s.get("query", "")
-                link = f"[{title}]({url})" if url else title
-                lines.append(f"- {link}" + (f" *(query: {query})*" if query else ""))
-            lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
 

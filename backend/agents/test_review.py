@@ -1,8 +1,8 @@
 """Test Coverage agent — identify missing tests and suggest concrete test cases.
 
-Scans source files for untested functions/classes, runs web research on testing
-best practices for the detected stack, and asks the LLM to produce actionable,
-runnable test suggestions grounded in the actual code.
+Scans source files for untested functions/classes, queries the best_practices
+corpus for testing patterns relevant to the detected stack, and asks the LLM to
+produce actionable, runnable test suggestions. No web search.
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ from pathlib import Path
 
 from ..state import ReviewState
 from ..llm import chat_json, load_prompt
-from ..tools.web_research import research_for_tests, detect_frameworks
+from ..corpus.build_index import retrieve as corpus_retrieve
 
 _MAX_SOURCE_FILES = 12
 _MAX_CHARS = 2000
-_MAX_WEB_RESULTS = 9
+_MAX_CORPUS_HITS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +42,6 @@ def _is_test_file(path: str) -> bool:
 
 
 def _extract_python_functions(file_path: str) -> list[str]:
-    """Return public function and method names via AST (Python only)."""
     try:
         src = Path(file_path).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(src)
@@ -60,7 +59,6 @@ def _extract_python_functions(file_path: str) -> list[str]:
 
 
 def _extract_js_functions(content: str) -> list[str]:
-    """Rough function-name extraction for JS/TS via regex."""
     patterns = [
         r"(?:export\s+)?(?:async\s+)?function\s+(\w+)",
         r"(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\(",
@@ -69,7 +67,7 @@ def _extract_js_functions(content: str) -> list[str]:
     names: list[str] = []
     for pat in patterns:
         names += re.findall(pat, content)
-    return list(dict.fromkeys(names))[:30]  # deduplicate, preserve order
+    return list(dict.fromkeys(names))[:30]
 
 
 def _extract_functions(file_path: str, language: str) -> list[str]:
@@ -86,7 +84,6 @@ def _extract_functions(file_path: str, language: str) -> list[str]:
 
 
 def _test_names(file_path: str, language: str) -> list[str]:
-    """Extract test function names from a test file."""
     if language == "python":
         return [n for n in _extract_python_functions(file_path) if n.startswith("test")]
     content = ""
@@ -95,6 +92,32 @@ def _test_names(file_path: str, language: str) -> list[str]:
     except Exception:
         pass
     return re.findall(r"(?:it|test)\s*\(\s*['\"]([^'\"]+)['\"]", content)[:30]
+
+
+def _corpus_for_testing(language: str) -> list[dict]:
+    """Query best_practices.json corpus for testing best practices."""
+    queries = [
+        f"{language} unit testing best practices",
+        "test coverage assertions edge cases",
+    ]
+    seen: set[str] = set()
+    hits: list[dict] = []
+    for q in queries:
+        for h in corpus_retrieve(q, k=4):
+            pid = h.get("practice_id") or h.get("title", "")
+            if pid and pid not in seen:
+                seen.add(pid)
+                hits.append({
+                    "practice_id": pid,
+                    "title": h.get("title", ""),
+                    "principle": h.get("principle", ""),
+                    "source": h.get("source", ""),
+                })
+            if len(hits) >= _MAX_CORPUS_HITS:
+                break
+        if len(hits) >= _MAX_CORPUS_HITS:
+            break
+    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -110,14 +133,12 @@ def test_review_node(state: ReviewState) -> ReviewState:
     if not files or not review_path:
         return {}
 
-    # Split into test vs source files
     test_files = [f for f in files if _is_test_file(f)]
     source_files = [f for f in files if not _is_test_file(f)]
 
     if not source_files:
         return {}
 
-    # Build rel-path → abs-path for source files
     rel_to_abs: dict[str, str] = {}
     for f in source_files:
         try:
@@ -126,7 +147,6 @@ def test_review_node(state: ReviewState) -> ReviewState:
             rel = os.path.basename(f)
         rel_to_abs[rel] = f
 
-    # Read source content + extract function signatures
     source_content: list[dict] = []
     for rel, absf in list(rel_to_abs.items())[:_MAX_SOURCE_FILES]:
         try:
@@ -136,25 +156,21 @@ def test_review_node(state: ReviewState) -> ReviewState:
         funcs = _extract_functions(absf, language)
         source_content.append({"file": rel, "content": content, "functions": funcs})
 
-    # Summarise existing tests (just file + what they test)
     existing_tests: list[dict] = []
     for tf in test_files[:6]:
         rel = os.path.basename(tf)
         tests = _test_names(tf, language)
         existing_tests.append({"test_file": rel, "tests_defined": tests})
 
-    # Web research for testing patterns
-    frameworks = detect_frameworks(source_content)
-    web_results = research_for_tests(language, frameworks)
-    web_results_for_prompt = web_results[:_MAX_WEB_RESULTS]
+    corpus_hits = _corpus_for_testing(language)
+    corpus_ids = {h["practice_id"] for h in corpus_hits}
 
-    # Build LLM payload
     payload = {
         "language": language,
         "source_files": source_content,
         "existing_tests": existing_tests,
         "has_any_tests": bool(test_files),
-        "web_research": web_results_for_prompt,
+        "corpus_best_practices": corpus_hits,
     }
     prompt = (
         load_prompt("test_review")
@@ -167,10 +183,7 @@ def test_review_node(state: ReviewState) -> ReviewState:
     except Exception:
         recs = []
 
-    # Validate and annotate
     valid_rel = set(rel_to_abs)
-    web_url_set = {r["url"] for r in web_results if r.get("url")}
-
     findings: list[dict] = []
     for r in recs:
         rel = (r.get("file") or "").replace("\\", "/")
@@ -188,22 +201,17 @@ def test_review_node(state: ReviewState) -> ReviewState:
         r["tool_grounded"] = False
         r["kb_grounded"] = False
 
-        safe_refs = [
-            ref for ref in (r.get("research_refs") or [])
-            if isinstance(ref, dict) and ref.get("url") in web_url_set
-        ]
-        r["research_refs"] = safe_refs
-        r["research_basis"] = [
-            f"{ref.get('title', 'Web ref')} — {ref['url']}" for ref in safe_refs
-        ]
+        # Only keep corpus citations that were actually in the lookup
+        basis: list[str] = []
+        for ref in (r.get("research_refs") or []):
+            if isinstance(ref, dict):
+                pid = ref.get("practice_id", "")
+                if pid in corpus_ids:
+                    basis.append(f"{ref.get('title', pid)} — {ref.get('source', '')}")
+        r["research_basis"] = basis if basis else r.get("research_basis", [])
+        r.pop("research_refs", None)
+
         findings.append(r)
 
     other = [f for f in state.get("findings", []) if f.get("category") != "testing"]
-
-    # Merge web research from previous nodes
-    seen = {r["url"] for r in state.get("web_research", []) if r.get("url")}
-    merged_web = list(state.get("web_research", [])) + [
-        r for r in web_results if r.get("url") and r["url"] not in seen
-    ]
-
-    return {"findings": other + findings, "web_research": merged_web}
+    return {"findings": other + findings}

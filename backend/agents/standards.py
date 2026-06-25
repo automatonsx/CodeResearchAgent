@@ -14,9 +14,10 @@ import json
 import sys
 from pathlib import Path
 
+import re
+
 from ..state import ReviewState
 from ..llm import chat_json, load_prompt
-from ..tools.web_research import detect_frameworks
 
 # Config files that encode tooling rules worth surfacing in the skill
 _CONFIG_FILES = [
@@ -25,6 +26,28 @@ _CONFIG_FILES = [
     "setup.cfg", ".flake8", "tox.ini",
 ]
 _MAX_CONFIG_CHARS = 800
+
+
+_FRAMEWORK_PATTERNS = {
+    "pytest": r"\bpytest\b",
+    "django": r"\bdjango\b",
+    "fastapi": r"\bfastapi\b",
+    "flask": r"\bflask\b",
+    "react": r"\breact\b",
+    "vue": r"\bvue\b",
+    "express": r"\bexpress\b",
+}
+
+
+def _detect_frameworks(file_contents: list[dict]) -> list[str]:
+    """Detect framework names by scanning file content for known import patterns."""
+    found: set[str] = set()
+    for fc in file_contents:
+        content = (fc.get("content") or "").lower()
+        for name, pat in _FRAMEWORK_PATTERNS.items():
+            if re.search(pat, content):
+                found.add(name)
+    return sorted(found)
 
 
 def _read_config_files(review_path: str) -> dict[str, str]:
@@ -50,7 +73,7 @@ def standards_node(state: ReviewState) -> ReviewState:
         return {"standards": {}}
 
     config_files = _read_config_files(review_path)
-    frameworks = detect_frameworks(ctx.get("_file_contents", []))
+    frameworks = _detect_frameworks(ctx.get("_file_contents", []))
 
     # Build a lean findings payload — only the fields the LLM needs for rule synthesis
     payload = {

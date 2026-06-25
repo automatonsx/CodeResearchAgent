@@ -16,7 +16,6 @@ class ReviewState(TypedDict, total=False):
     tool_findings: list        # raw ground-truth from ruff/semgrep/ast
     findings: list             # structured findings (see schema below)
     citations: list            # corpus matches attached per finding
-    web_research: list         # [{title, url, snippet, source_type, query}] from arch review
     critique: dict             # {dropped, low_confidence, needs_recheck, notes}
     iterations: int            # loop guard (max 2)
     final_report: dict         # {summary, recommendations, verdict, score}
@@ -42,7 +41,6 @@ def initial_state(source: str, input_type: str = "repo") -> ReviewState:
         tool_findings=[],
         findings=[],
         citations=[],
-        web_research=[],
         critique={"dropped": [], "low_confidence": [], "needs_recheck": False, "notes": []},
         iterations=0,
         final_report={},

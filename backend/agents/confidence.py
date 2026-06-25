@@ -119,9 +119,8 @@ def analysis_quality(
     The result is included in final_report["analysis_quality"] and rendered
     as the "Analysis Quality" section in the Markdown report.
     """
-    ctx         = state.get("context", {})
-    counts      = ctx.get("counts", {})
-    web_sources = state.get("web_research", [])
+    ctx    = state.get("context", {})
+    counts = ctx.get("counts", {})
 
     total_attempted = len(kept) + len(dropped)
 
@@ -163,19 +162,6 @@ def analysis_quality(
     total_files    = files_reviewed + files_skipped
     coverage_pct   = files_reviewed / total_files if total_files else 1.0
 
-    # ── Web research quality ─────────────────────────────────────────
-    cited_urls = set()
-    for f in kept:
-        for r in (f.get("research_basis") or []):
-            if isinstance(r, str) and "http" in r:
-                # extract URL from "Title — URL" format
-                parts = r.rsplit("—", 1)
-                if len(parts) == 2:
-                    cited_urls.add(parts[1].strip())
-        for r in (f.get("research_refs") or []):
-            if isinstance(r, dict) and r.get("url"):
-                cited_urls.add(r["url"])
-
     # ── Grade ────────────────────────────────────────────────────────
     grade, rationale = _grade(
         overall_confidence, grounding_rate, verification_rate,
@@ -205,11 +191,6 @@ def analysis_quality(
             "files_reviewed":  files_reviewed,
             "files_skipped":   files_skipped,
             "coverage_pct":    round(coverage_pct, 2),
-        },
-        "web_research": {
-            "sources_fetched": len(web_sources),
-            "sources_cited":   len(cited_urls),
-            "cite_rate":       round(len(cited_urls) / len(web_sources), 2) if web_sources else 0.0,
         },
     }
 
