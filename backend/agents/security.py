@@ -67,7 +67,6 @@ def security_node(state: ReviewState) -> ReviewState:
     issue_types = _issue_types_from_raw(raw)
 
     web_results = research_for_security(language, frameworks, issue_types)
-    web_url_set = {r["url"] for r in web_results if r.get("url")}
 
     # Attach web citations to findings that don't already have a research_basis
     if web_results:
