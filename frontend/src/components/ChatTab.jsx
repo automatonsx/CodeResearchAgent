@@ -9,9 +9,29 @@ const SUGGESTIONS = [
   "How can we improve error handling?",
 ];
 
+// Parse inline markdown: **bold** and `code`
 function parseInline(text) {
-  const parts = text.split(/\*\*(.+?)\*\*/g);
-  return parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p));
+  // Split on **bold** and `code` markers
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) {
+      return <strong key={i}>{p.slice(2, -2)}</strong>;
+    }
+    if (p.startsWith("`") && p.endsWith("`")) {
+      return (
+        <code key={i} style={{
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: 3,
+          padding: "1px 5px",
+          fontFamily: "monospace",
+          fontSize: "0.88em",
+        }}>
+          {p.slice(1, -1)}
+        </code>
+      );
+    }
+    return p;
+  });
 }
 
 function MarkdownBody({ text }) {
@@ -19,54 +39,103 @@ function MarkdownBody({ text }) {
   const lines = text.split("\n");
   const out = [];
   let bullets = [];
+  let ordered = [];
 
   const flushBullets = () => {
     if (!bullets.length) return;
     out.push(
       <ul key={`ul-${out.length}`} style={{ margin: "4px 0 8px", paddingLeft: 20 }}>
-        {bullets.map((b, i) => (
-          <li key={i} style={{ marginBottom: 3 }}>{parseInline(b)}</li>
-        ))}
+        {bullets.map((b, i) => <li key={i} style={{ marginBottom: 4 }}>{parseInline(b)}</li>)}
       </ul>
     );
     bullets = [];
   };
 
+  const flushOrdered = () => {
+    if (!ordered.length) return;
+    out.push(
+      <ol key={`ol-${out.length}`} style={{ margin: "4px 0 8px", paddingLeft: 22 }}>
+        {ordered.map((o, i) => <li key={i} style={{ marginBottom: 4 }}>{parseInline(o)}</li>)}
+      </ol>
+    );
+    ordered = [];
+  };
+
   lines.forEach((raw, i) => {
     const line = raw.trim();
-    if (!line) { flushBullets(); return; }
 
-    if (line.startsWith("- ")) {
-      bullets.push(line.slice(2));
+    if (!line) {
+      flushBullets();
+      flushOrdered();
       return;
     }
+
+    // Numbered list: "1. " or "1) "
+    const numMatch = line.match(/^\d+[.)]\s+(.+)/);
+    if (numMatch) {
+      flushBullets();
+      ordered.push(numMatch[1]);
+      return;
+    }
+
+    // Bullet: "- " or "• "
+    if (line.startsWith("- ") || line.startsWith("• ")) {
+      flushOrdered();
+      bullets.push(line.replace(/^[-•]\s+/, ""));
+      return;
+    }
+
     flushBullets();
+    flushOrdered();
 
     // ### or ## heading
     const h3 = line.match(/^###\s+(.+)/);
     const h2 = line.match(/^##\s+(.+)/);
     if (h3 || h2) {
       out.push(
-        <p key={i} style={{ fontWeight: 700, marginTop: 12, marginBottom: 2, fontSize: "0.93em", opacity: 0.9 }}>
+        <p key={i} style={{ fontWeight: 700, marginTop: 14, marginBottom: 3, fontSize: "0.95em", opacity: 0.95 }}>
           {parseInline((h3 || h2)[1])}
         </p>
       );
       return;
     }
 
-    // Standalone **heading** line
-    const headingMatch = line.match(/^\*\*(.+)\*\*[:\s]*$/);
+    // KB / citation line: starts with KB: or emoji citation markers
+    const citeMatch = line.match(/^(KB:|📚|🧠|🟢)\s*(.*)/);
+    if (citeMatch) {
+      out.push(
+        <div key={i} style={{
+          marginTop: 10,
+          padding: "5px 10px",
+          borderLeft: "2px solid #4ade80",
+          color: "#4ade80",
+          fontSize: "0.82em",
+          fontFamily: "monospace",
+          opacity: 0.85,
+        }}>
+          🧠 {citeMatch[1] === "KB:" ? "KB: " : ""}{citeMatch[2]}
+        </div>
+      );
+      return;
+    }
+
+    // Standalone **Heading**: line
+    const headingMatch = line.match(/^\*\*(.+?)\*\*[:\s]*$/);
     if (headingMatch) {
       out.push(
         <p key={i} style={{ fontWeight: 700, marginTop: 12, marginBottom: 2, fontSize: "0.93em" }}>
           {headingMatch[1]}
         </p>
       );
-    } else {
-      out.push(<p key={i} style={{ margin: "3px 0" }}>{parseInline(line)}</p>);
+      return;
     }
+
+    // Regular paragraph
+    out.push(<p key={i} style={{ margin: "4px 0", lineHeight: 1.6 }}>{parseInline(line)}</p>);
   });
+
   flushBullets();
+  flushOrdered();
   return <>{out}</>;
 }
 
@@ -143,7 +212,8 @@ export default function ChatTab({ codebase, onUpdate }) {
     setLoading(true);
     try {
       const data = await researchChat(q, codebase.source || "");
-      const botMsg = { role: "bot", content: data.answer };
+      // Always render bot answers as markdown — the LLM returns formatted text
+      const botMsg = { role: "bot", content: data.answer, markdown: true };
       const final = [...next, botMsg];
       setMessages(final);
       onUpdate({ chatHistory: final });
@@ -159,16 +229,11 @@ export default function ChatTab({ codebase, onUpdate }) {
     if (!codebase.source || researching) return;
     setResearching(true);
 
-    // 1) Push user trigger + a live pipeline message into the thread
-    const userMsg    = { role: "user", content: "🔬 Research entire codebase" };
+    const userMsg     = { role: "user", content: "🔬 Research entire codebase" };
     const pipelineMsg = { role: "bot", type: "pipeline", trace: [], running: true };
 
-    setMessages(prev => {
-      const base = [...prev, userMsg, pipelineMsg];
-      return base;
-    });
+    setMessages(prev => [...prev, userMsg, pipelineMsg]);
 
-    // capture the index AFTER we push (prev.length + 1 = pipelineMsg index)
     let pipelineIdx = -1;
 
     try {
@@ -177,7 +242,6 @@ export default function ChatTab({ codebase, onUpdate }) {
         codebase.inputType || "repo",
         (update) => {
           setMessages(prev => {
-            // find pipeline message (running:true) if index not yet known
             if (pipelineIdx === -1) {
               pipelineIdx = prev.findIndex(m => m.type === "pipeline" && m.running);
             }
@@ -200,7 +264,6 @@ export default function ChatTab({ codebase, onUpdate }) {
             : prev.findIndex(m => m.type === "pipeline");
           const next = [...prev];
           if (idx !== -1) next[idx] = resultMsg; else next.push(resultMsg);
-          // persist only non-pipeline messages
           const persisted = next.filter(m => m.type !== "pipeline");
           onUpdate({
             chatHistory: persisted,
@@ -255,7 +318,6 @@ export default function ChatTab({ codebase, onUpdate }) {
               <div className="ava">{m.role === "user" ? "🧑" : "🛡️"}</div>
 
               {m.type === "pipeline" ? (
-                // GlassBox lives INSIDE the bot bubble in the thread
                 <div className="bubble" style={{ padding: 0, background: "transparent", boxShadow: "none", maxWidth: "100%" }}>
                   <GlassBox trace={m.trace} running={m.running} />
                 </div>
