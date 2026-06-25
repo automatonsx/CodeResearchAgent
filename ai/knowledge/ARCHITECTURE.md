@@ -6,7 +6,7 @@ _Last updated: 2026-06-25_
 
 ## Overview
 
-Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.
+Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. A new Architecture & Design agent has been introduced, which leverages the project's knowledge base to provide higher-level, repo-aware suggestions. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.
 
 ## Modules
 
@@ -46,16 +46,17 @@ Orchestrates the backend, including API endpoints, agent graph execution, and sh
 - Appears to integrate Azure OpenAI for LLM-based tasks.
 
 ### `backend/agents`
-Implements the core agents for context extraction, code quality, security, grounding, critique, and report generation.
+Implements the core agents for context extraction, code quality, security, grounding, critique, architecture/design review, and report generation.
 
-**Key files:** `backend/agents/__init__.py`, `backend/agents/_generic.py`, `backend/agents/_snippet.py`, `backend/agents/_structure.py`, `backend/agents/code_quality.py`, `backend/agents/context.py`, `backend/agents/critic.py`, `backend/agents/grounding.py`, `backend/agents/report.py`, `backend/agents/security.py`
+**Key files:** `backend/agents/__init__.py`, `backend/agents/_generic.py`, `backend/agents/_snippet.py`, `backend/agents/_structure.py`, `backend/agents/code_quality.py`, `backend/agents/context.py`, `backend/agents/critic.py`, `backend/agents/grounding.py`, `backend/agents/report.py`, `backend/agents/security.py`, `backend/agents/architecture.py`
 
 **Patterns / conventions:**
 - Agent-based modular design
 - Separation of concerns
 
 **Design decisions:**
-- Agents are designed to handle distinct responsibilities, such as code quality or security.
+- Agents are designed to handle distinct responsibilities, such as code quality, security, or architecture/design.
+- Introduced a new Architecture & Design agent that leverages the knowledge base for repo-aware suggestions.
 - Appears to use a graph-based orchestration for agent communication.
 
 ### `backend/corpus`
@@ -68,6 +69,29 @@ Manages the best-practices corpus used for grounding findings.
 
 **Design decisions:**
 - Uses ChromaDB for embedding and querying best-practice principles.
+
+### `backend/graph.py`
+Defines the execution graph for orchestrating agents in the multi-agent workflow.
+
+**Key files:** `backend/graph.py`
+
+**Patterns / conventions:**
+- Graph-based orchestration
+
+**Design decisions:**
+- Added the Architecture & Design agent to the graph, positioned after the Security agent and before the Grounding agent.
+
+### `backend/knowledge`
+Manages the project's knowledge base, including retrieval of relevant modules for reviews.
+
+**Key files:** `backend/knowledge/__init__.py`, `backend/knowledge/extractor.py`, `backend/knowledge/store.py`, `backend/knowledge/update.py`, `backend/knowledge/retrieve.py`
+
+**Patterns / conventions:**
+- Knowledge base management
+
+**Design decisions:**
+- Added a retrieval mechanism (`retrieve.py`) to identify relevant KB modules for reviewed files.
+- Supports direct module lookup for KB-grounded reviews.
 
 ### `backend/tools`
 Provides utility functions and tool integrations for static analysis and diff parsing.
@@ -123,16 +147,16 @@ Implements the user interface for inputting repositories/diffs and viewing revie
 - React (Vite) for frontend development
 
 **Design decisions:**
-- Includes a glass-box view to show intermediate agent states.
-- Appears to prioritize transparency in report generation.
+- Updated the GlassBox component to include the Architecture & Design agent in the workflow visualization.
+- Enhanced the Report component to display KB-grounded findings with a distinct visual indicator.
 
 ### `prompts`
 Stores LLM prompt templates for various agents.
 
-**Key files:** `prompts/code_quality.md`, `prompts/generic_review.md`, `prompts/knowledge_extractor.md`, `prompts/report.md`, `prompts/security.md`
+**Key files:** `prompts/code_quality.md`, `prompts/generic_review.md`, `prompts/knowledge_extractor.md`, `prompts/report.md`, `prompts/security.md`, `prompts/architecture.md`
 
 **Patterns / conventions:**
 - Prompt engineering
 
 **Design decisions:**
-- Templates appear tailored to specific agent tasks.
+- Added a new prompt template (`architecture.md`) tailored for the Architecture & Design agent, emphasizing KB-grounded suggestions.

@@ -1,7 +1,7 @@
 {
   "project": "Scout",
   "updated": "2026-06-25",
-  "overview": "Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.",
+  "overview": "Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. A new Architecture & Design agent has been introduced, which leverages the project's knowledge base to provide higher-level, repo-aware suggestions. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.",
   "modules": {
     ".claude/skills": {
       "purpose": "Contains skill definitions for specific tasks like reviewing repositories or building the best-practices corpus.",
@@ -32,7 +32,7 @@
       "last_updated": "2026-06-25"
     },
     "backend/agents": {
-      "purpose": "Implements the core agents for context extraction, code quality, security, grounding, critique, and report generation.",
+      "purpose": "Implements the core agents for context extraction, code quality, security, grounding, critique, architecture/design review, and report generation.",
       "key_files": [
         "backend/agents/__init__.py",
         "backend/agents/_generic.py",
@@ -43,14 +43,16 @@
         "backend/agents/critic.py",
         "backend/agents/grounding.py",
         "backend/agents/report.py",
-        "backend/agents/security.py"
+        "backend/agents/security.py",
+        "backend/agents/architecture.py"
       ],
       "patterns": [
         "Agent-based modular design",
         "Separation of concerns"
       ],
       "decisions": [
-        "Agents are designed to handle distinct responsibilities, such as code quality or security.",
+        "Agents are designed to handle distinct responsibilities, such as code quality, security, or architecture/design.",
+        "Introduced a new Architecture & Design agent that leverages the knowledge base for repo-aware suggestions.",
         "Appears to use a graph-based orchestration for agent communication."
       ],
       "last_updated": "2026-06-25"
@@ -131,8 +133,8 @@
         "React (Vite) for frontend development"
       ],
       "decisions": [
-        "Includes a glass-box view to show intermediate agent states.",
-        "Appears to prioritize transparency in report generation."
+        "Updated the GlassBox component to include the Architecture & Design agent in the workflow visualization.",
+        "Enhanced the Report component to display KB-grounded findings with a distinct visual indicator."
       ],
       "last_updated": "2026-06-25"
     },
@@ -174,13 +176,14 @@
         "prompts/generic_review.md",
         "prompts/knowledge_extractor.md",
         "prompts/report.md",
-        "prompts/security.md"
+        "prompts/security.md",
+        "prompts/architecture.md"
       ],
       "patterns": [
         "Prompt engineering"
       ],
       "decisions": [
-        "Templates appear tailored to specific agent tasks."
+        "Added a new prompt template (`architecture.md`) tailored for the Architecture & Design agent, emphasizing KB-grounded suggestions."
       ],
       "last_updated": "2026-06-25"
     },
@@ -194,6 +197,37 @@
       ],
       "decisions": [
         "Appears to target Docker-based deployment."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/graph.py": {
+      "purpose": "Defines the execution graph for orchestrating agents in the multi-agent workflow.",
+      "key_files": [
+        "backend/graph.py"
+      ],
+      "patterns": [
+        "Graph-based orchestration"
+      ],
+      "decisions": [
+        "Added the Architecture & Design agent to the graph, positioned after the Security agent and before the Grounding agent."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/knowledge": {
+      "purpose": "Manages the project's knowledge base, including retrieval of relevant modules for reviews.",
+      "key_files": [
+        "backend/knowledge/__init__.py",
+        "backend/knowledge/extractor.py",
+        "backend/knowledge/store.py",
+        "backend/knowledge/update.py",
+        "backend/knowledge/retrieve.py"
+      ],
+      "patterns": [
+        "Knowledge base management"
+      ],
+      "decisions": [
+        "Added a retrieval mechanism (`retrieve.py`) to identify relevant KB modules for reviewed files.",
+        "Supports direct module lookup for KB-grounded reviews."
       ],
       "last_updated": "2026-06-25"
     }
