@@ -20,13 +20,25 @@ def grounding_node(state: ReviewState) -> ReviewState:
         query = " ".join(
             str(x) for x in [f.get("type"), f.get("tool_evidence"), f.get("issue")] if x
         )
-        hits = retrieve(query, k=1)
+        hits = retrieve(query, k=3)
         if hits:
-            top = hits[0]
-            basis = f"{top['title']} — {top['source']}"
-            f["research_basis"] = [basis]
-            citations.append({"finding": f.get("issue", ""), "title": top["title"],
-                              "source": top["source"], "principle": top.get("principle")})
+            # Attach up to 2 distinct citations; dedup by title to avoid corpus repeats.
+            seen_titles: set[str] = set()
+            basis: list[str] = []
+            for hit in hits:
+                title = hit.get("title") or ""
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    basis.append(f"{title} — {hit['source']}")
+                    citations.append({
+                        "finding": f.get("issue", ""),
+                        "title": title,
+                        "source": hit["source"],
+                        "principle": hit.get("principle"),
+                    })
+                if len(basis) >= 2:
+                    break
+            f["research_basis"] = basis
         else:
             f.setdefault("research_basis", [])
     return {"findings": findings, "citations": citations}

@@ -3,6 +3,7 @@ name: build-corpus
 description: (Re)build the curated best-practices ChromaDB index that the Grounding step uses to cite findings. Use after editing backend/corpus/best_practices.json or to initialize the vector store.
 ---
 
+
 # build-corpus
 
 (Re)build the best-practices corpus index used for citation grounding (the RAG store).

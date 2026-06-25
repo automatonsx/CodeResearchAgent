@@ -15,7 +15,9 @@ from pathlib import Path
 
 from backend.state import initial_state
 from backend.agents import (
-    context_node, code_quality_node, security_node, grounding_node, critic_node,
+    context_node, code_quality_node, security_node,
+    architecture_node, test_review_node,
+    grounding_node, critic_node,
 )
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +38,8 @@ def _run_pipeline(target: str, input_type: str):
     s.update(context_node(s))
     s.update(code_quality_node(s))
     s.update(security_node(s))
+    s.update(architecture_node(s))
+    s.update(test_review_node(s))
     s.update(grounding_node(s))
     pre = list(s.get("findings", []))
     s.update(critic_node(s))
@@ -78,8 +82,23 @@ def main() -> None:
         mark = "OK " if (lab["file"], lab["line"]) in caught else "MISS"
         print(f"    [{mark}] {lab['file']}:{lab['line']}  {lab['what']}")
     print("-" * 60)
-    grounded = sum(1 for f in post if f.get("tool_evidence"))
+    print("FINDINGS BY AGENT / CATEGORY")
+    by_cat: dict[str, list] = {}
+    for f in post:
+        cat = f.get("category", f.get("type", "unknown"))
+        by_cat.setdefault(cat, []).append(f)
+    for cat, findings in sorted(by_cat.items()):
+        tool_n = sum(1 for f in findings if f.get("tool_grounded"))
+        web_n  = sum(1 for f in findings if any(
+            "http" in str(r) for r in (f.get("research_basis") or [])
+        ))
+        print(f"  {cat:<12} {len(findings):2} finding(s)  "
+              f"tool-grounded: {tool_n}  web-cited: {web_n}")
+    print("-" * 60)
+    grounded = sum(1 for f in post if f.get("tool_grounded"))
+    conf_avg = (sum(float(f.get("confidence", 0)) for f in post) / len(post)) if post else 0
     print(f"Tool-grounded findings (high-precision): {grounded}/{len(post)}")
+    print(f"Average confidence (all kept findings)  : {conf_avg:.2f}")
     print("Note: all kept findings are file:line-verified by the Critic; precision is "
           "reported as the tool-grounded ratio + Critic drops, since labels target the "
           "planted critical issues rather than every lint nit.")

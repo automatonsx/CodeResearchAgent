@@ -1,106 +1,201 @@
 # Scout — Research-Aware Code Review Assistant
 
-> Point it at a **repo folder or a PR diff** → get a **prioritized, cited review report**.
-> Every finding is grounded in **real tool output + a best-practices corpus**, self-checked
-> by a **Critic loop**, and scored. *(Workshop Project 8 — Team 7.)*
+> Point it at a **repo or a GitHub URL** → get a **prioritized, cited review report**,
+> a **SKILL.md** that teaches Claude Code your project's rules, and a **pre-commit hook**
+> that blocks critical violations before they land.
 
-Scout is **not a linter wrapper.** The hook: *"Your code has issue X — here's the
-principle/source behind it, the fix, and the effort it takes."* The LLM **proposes**;
-tools (`ruff`/`ast`/`semgrep`) and the **Critic verify** before anything is shown.
+Scout is **not a linter wrapper.** Every finding is grounded in real tool output
+(`ruff` / `ast` / generic scanner), verified by a **Critic loop**, and cited against a
+curated best-practices corpus — so hallucinated findings get dropped before you see them.
 
 ---
 
-## The agents
-
-| Agent | Job | Grounded by |
-|-------|-----|-------------|
-| **Context Extractor** | Detect languages, find source files to review | file walk / diff parse |
-| **Code-Quality Agent** | Smells, complexity, dead code, missing tests | `ruff`+`ast` (Python), `eslint` (JS/TS); LLM reviewer (other langs) |
-| **Security Agent** | Secrets, injection, unsafe calls | `ruff` bandit (`S`), `eslint` (no-eval…), `semgrep`*, generic secret/pattern scan |
-| **Architecture & Design** | Repo-aware suggestions (separation of concerns, consistency with established patterns) | the project **knowledge base** (`ai/knowledge`) |
-| **Grounding** | Attach a best-practice citation to each finding | ChromaDB corpus |
-| **Critic** | Re-open each `file:line`; drop false positives → loop | re-reads + verifies quoted code |
-| **Report Generator** | Prioritize, score, verdict, summary | — |
-
-\* semgrep is optional (poor native-Windows support); ruff's `S` rules + AST are the fallback.
-
-**Languages:** any. **Python** (ruff + ast) and **JS/TS** (eslint) are deeply
-**tool-grounded**. **Other languages** (Go, Java, Ruby, PHP, C/C++, …) are reviewed by a
-language-agnostic secret/pattern scanner (ground truth) + an LLM reviewer whose findings
-the **Critic verifies** by re-checking the quoted code — so hallucinated findings get
-dropped. (eslint is optional, like semgrep — set it up below; otherwise JS falls back to
-the LLM reviewer.)
-
-### Orchestration graph (the twist 🟡)
+## What Scout produces for any repo
 
 ```
-Context → Code-Quality → Security → Grounding → Critic ──(recheck, max 2)──┐
-                            ▲                                              │
-                            └──────────────────────────────────────────────┘
-                                                  └──(validated)──► Report → END
+<repo>/
+  .claude/
+    skills/code-standards/SKILL.md   ← auto-loaded by Claude Code in every session
+    scout-report.md                   ← full findings with citations + analysis grade
+  .git/hooks/pre-commit               ← blocks CRITICAL issues on every git commit
 ```
 
-The **Critic → re-check loop** is what makes Scout *agentic*, not a fan-out pipeline.
-It re-opens every `file:line`, drops unverifiable/duplicate findings, and re-checks
-low-confidence ones (capped at 2 loops).
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Python 3.10+ | |
+| Node 18+ | only for the web UI frontend |
+| **Azure OpenAI** API key | `gpt-4o` deployment — Scout's LLM backbone |
+| Tavily API key *(optional)* | higher-quality web research in the Architecture agent; free tier works |
 
 ---
 
-## How we trust the output (anti-hallucination)
-
-1. **No finding without a verifiable `file:line`** — the Critic re-opens it or drops it.
-2. **Tool facts vs. LLM opinion** — `ruff`/`ast`/`semgrep` results are ground truth;
-   LLM-judgment findings must quote code and are marked low-confidence for re-check.
-3. **Every finding cites a best-practice** from the curated ChromaDB corpus.
-4. **Critic loop** removes false positives and re-checks before the report is built.
-
----
-
-## Tech stack
-
-**React** (Vite) · **FastAPI** · **LangGraph + LangChain** · **Azure OpenAI** `gpt-4o` ·
-**ruff / Python ast** (+ optional **semgrep**) · **ChromaDB** (best-practices corpus) ·
-**GitPython** (diff support).
-
-Flow: `React → FastAPI → LangGraph (agents via LangChain) → Azure gpt-4o / ruff / ChromaDB`
-
----
-
-## Quick start
+## Setup (one time)
 
 ```bash
-# 0. Configure secrets
-cp .env.example .env            # add AZURE_OPENAI_* (semgrep optional)
+# 1. Clone
+git clone https://github.com/<your-username>/scout.git
+cd scout
 
-# 1. Backend (FastAPI + LangGraph) — run from the REPO ROOT
-cd backend
-python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
-pip install -r requirements.txt
-cd ..
-uvicorn backend.main:app --reload           # http://localhost:8000
+# 2. Configure secrets  (.env is gitignored — never committed)
+cp .env.example .env
+#   Open .env and fill in:
+#     AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT,
+#     AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_MODEL, AZURE_OPENAI_API_VERSION
+#   Optionally add:
+#     TAVILY_API_KEY
 
-# 2. Frontend (React + Vite) — second terminal
-cd frontend
-npm install && npm run dev                   # http://localhost:5173
+# 3. Install Python dependencies
+pip install -r backend/requirements.txt
 
-# 3. (Optional) eslint ground-truth for JS/TS — without this, JS uses the LLM reviewer
-cd backend/tools/eslint_env && npm install
+# 4. Build the best-practices corpus (ChromaDB index used for citations)
+python -m backend.corpus.build_index
+
+# 5. (Optional) JS/TS ground-truth linting via eslint
+cd backend/tools/eslint_env && npm install && cd ../../..
 ```
 
-Open http://localhost:5173 and pick an input:
-- **Repo folder** — a local path (try `data/sample_repo`)
-- **GitHub URL** — a public repo; Scout clones it. A `…/tree/<branch>/<subdir>` link
-  reviews just that subfolder (try `https://github.com/PyCQA/bandit/tree/main/examples`)
-- **PR diff** — paste a unified diff (try `data/sample.diff`)
+---
 
-CLI (no server):
+## Three ways to use Scout
+
+### 1. One-command repo onboarding (recommended)
+
+Clones (or uses a local path), runs all agents, writes SKILL.md + scout-report.md +
+installs the pre-commit hook — everything in one command:
+
 ```bash
-python -m backend.graph "data/sample_repo" repo
-python -m backend.graph "https://github.com/PyCQA/bandit/tree/main/examples" github
+# GitHub URL
+python scripts/onboard_repo.py https://github.com/owner/repo
+
+# Local path
+python scripts/onboard_repo.py /path/to/your/repo
+
+# Save a Markdown report too (written to reports/ in Scout's own folder)
+python scripts/onboard_repo.py https://github.com/owner/repo --save-report
+
+# Also install the pre-push hook
+python scripts/onboard_repo.py https://github.com/owner/repo --pre-push
+
+# Dry run — see what would happen without writing anything
+python scripts/onboard_repo.py https://github.com/owner/repo --dry-run
+```
+
+After it finishes, commit the artefacts so your whole team gets them:
+
+```bash
+cd repos/<repo-name>          # (or your local path)
+git add .claude/
+git commit -m "chore: add Scout coding standards and review report"
+```
+
+---
+
+### 2. Web UI (browser)
+
+```bash
+# Terminal 1 — backend
+python -m uvicorn backend.main:app --reload --port 8000
+
+# Terminal 2 — frontend
+cd frontend && npm install && npm run dev
+```
+
+Open **http://localhost:5173** — paste a local path, GitHub URL, or PR diff.
+The review streams agent-by-agent as it runs.
+
+---
+
+### 3. Claude Code MCP (talk to Scout directly in Claude)
+
+Scout ships as an MCP server. Once connected, Claude can call `review_repo`,
+`review_pr`, and `onboard_repo` as tools — no terminal needed.
+
+**Connect it:**
+
+1. Open Claude Code in the Scout project folder — it reads `.mcp.json` automatically.
+2. Or add it to your user-level Claude Code config:
+
+```json
+// ~/.claude.json  →  add under "mcpServers"
+{
+  "mcpServers": {
+    "scout": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "backend.mcp_server"],
+      "cwd": "/absolute/path/to/scout"
+    }
+  }
+}
+```
+
+**Then in any Claude Code session:**
+
+> *"Scout, review https://github.com/martinmimigames/tiny-music-player"*
+> → Claude calls `review_repo`, returns the full Markdown report
+
+> *"Onboard this repo: /path/to/myproject"*
+> → Claude calls `onboard_repo`, writes SKILL.md + scout-report.md + hook, returns a summary
+
+**Available MCP tools:**
+
+| Tool | What it does |
+|---|---|
+| `review_repo(path_or_url)` | Full review → Markdown report. Writes nothing. |
+| `review_pr(pr_url)` | Review changed lines in a GitHub PR → Markdown report. |
+| `onboard_repo(path_or_url, install_hooks)` | Full pipeline → SKILL.md + scout-report.md + pre-commit hook written into the repo. |
+
+---
+
+## CLI — no server
+
+```bash
+python -m backend.graph data/sample_repo repo
+python -m backend.graph https://github.com/owner/repo github
 python -m backend.graph "$(cat data/sample.diff)" pr_diff
 ```
-> Public repos are shallow-cloned to a temp dir; a soft cap (~60 files) keeps large
-> repos demo-fast. Point at a `…/tree/.../subdir` link to focus the review.
+
+Reports are saved to `reports/`.
+
+---
+
+## How the agents work
+
+```
+Context → Code-Quality → Security → Architecture → Test-Review
+       → Grounding → Critic ──(recheck, max 2)──┐
+                         └──(validated)──► Report → Standards → END
+```
+
+| Agent | Job | Grounded by |
+|---|---|---|
+| **Context** | Detect languages, walk source files | file system |
+| **Code-Quality** | Smells, complexity, dead code | `ruff` + `ast` (Python); LLM (other langs) |
+| **Security** | Secrets, injection, unsafe calls | `ruff` bandit rules + generic pattern scanner |
+| **Architecture** | Separation of concerns, design patterns | web research + KB |
+| **Test-Review** | Coverage gaps, missing edge cases | LLM |
+| **Grounding** | Attach best-practice citation to each finding | ChromaDB corpus |
+| **Critic** | Re-open each `file:line`, drop false positives | re-reads actual code |
+| **Report** | Prioritize, score, verdict | — |
+| **Standards** | Extract project rules → SKILL.md | verified findings |
+
+**Languages supported:** any.
+- **Python** — `ruff` + `ast` (deeply tool-grounded)
+- **JS/TS** — `eslint` (optional) + generic scanner
+- **Java, Go, Kotlin, Ruby, PHP, C/C++, Rust, Swift, …** — generic scanner + LLM (Critic-verified)
+
+---
+
+## How Scout avoids hallucinations
+
+1. **No finding without a `file:line`** — the Critic re-opens every finding in the actual file or drops it.
+2. **Tool facts vs. LLM opinion** — `ruff`/`ast` results are ground truth; LLM findings must quote code or get dropped.
+3. **Every finding cites a best practice** from the curated ChromaDB corpus.
+4. **Read-only guard** — after analysis, Scout asserts no source file was modified (`git diff`). Raises an error if violated.
 
 ---
 
@@ -108,51 +203,44 @@ python -m backend.graph "$(cat data/sample.diff)" pr_diff
 
 ```
 .
-├── README.md  DESIGN.md  AI_USAGE.md  REFERENCES.md  DEMO_SCRIPT.md  LIMITATIONS.md
-├── .claude/skills/
-│   ├── review-repo/SKILL.md      # graded Skill — review a repo/diff, save report
-│   └── build-corpus/SKILL.md     # stretch Skill — (re)build the corpus index
 ├── backend/
-│   ├── main.py                   # POST /review, /review/stream
-│   ├── graph.py                  # LangGraph wiring + Critic loop
-│   ├── state.py                  # ReviewState
-│   ├── llm.py                    # Azure OpenAI client (LangChain)
-│   ├── agents/                   # context, code_quality, security, grounding, critic, report
-│   ├── tools/                    # ruff_runner, semgrep_runner, ast_utils, diff_utils
-│   └── corpus/                   # best_practices.json + build_index.py (ChromaDB)
-├── frontend/                     # React (Vite) — input + glass-box + report view
-├── evals/                        # planted-issue test set (stretch)
-├── deployment/                   # Dockerfile
-├── data/                         # sample_repo/ + sample.diff
-└── reports/                      # saved reports (review-repo output)
+│   ├── main.py              # FastAPI — POST /review, /review/stream (SSE)
+│   ├── graph.py             # LangGraph wiring + run() / run_standards()
+│   ├── mcp_server.py        # MCP server — review_repo, review_pr, onboard_repo
+│   ├── state.py             # ReviewState (LangGraph)
+│   ├── llm.py               # Azure OpenAI client
+│   ├── report_md.py         # Markdown report renderer
+│   ├── standards_skill.py   # SKILL.md renderer
+│   ├── agents/              # context, code_quality, security, architecture,
+│   │                        # test_review, grounding, critic, report, standards
+│   ├── tools/               # ruff_runner, generic_scan, ast_utils, web_research
+│   └── corpus/              # best_practices.json + build_index.py (ChromaDB)
+├── frontend/                # React (Vite) — streaming review UI
+├── scripts/
+│   ├── onboard_repo.py      # one-command onboarding CLI
+│   └── install_hooks.py     # install pre-commit / pre-push hooks
+├── .claude/skills/          # Claude Code skills for Scout itself
+├── .mcp.json                # MCP server config (auto-loaded by Claude Code)
+├── .env.example             # copy → .env, fill in API keys
+├── data/sample_repo/        # tiny Python repo with intentional bugs (demo)
+├── docs/best_practices.json # curated KB — 53 best practices with citations
+└── reports/                 # saved review reports
 ```
 
-## CI — PR checks
+---
 
-[.github/workflows/pr-checks.yml](.github/workflows/pr-checks.yml) runs on every PR:
-- **Lint & compile** (ruff + `compileall`) and **frontend build** — always run, no secrets.
-- **Scout AI review** — fetches the PR diff, runs the review graph, posts the report as a
-  PR comment + uploads it as an artifact. Runs only if Azure OpenAI secrets are set.
+## CI
 
-To enable the Scout review job, add these in **Settings → Secrets and variables → Actions**:
-`AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`,
-`AZURE_OPENAI_API_VERSION`. (`GITHUB_TOKEN` is provided automatically.) Without them, that
-job skips cleanly and the static checks still run.
+`.github/workflows/pr-checks.yml` runs on every PR:
+- **Lint + compile** (`ruff` + `compileall`) and **frontend build** — always run, no secrets needed.
+- **Scout AI review** — fetches the PR diff, runs the pipeline, posts the report as a PR comment.
+  Runs only when Azure OpenAI secrets are set in repo Settings → Secrets → Actions:
+  `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`.
+  Without them, that job skips cleanly.
 
-## Architecture knowledge base (auto-maintained)
+---
 
-After anything merges to `main`, [.github/workflows/kb-update.yml](.github/workflows/kb-update.yml)
-distills the diff into a living knowledge base under [ai/knowledge/](ai/knowledge/):
-- `architecture.json` — structured source of truth (per-module purpose, files, patterns, decisions)
-- `ARCHITECTURE.md` — human-readable rendering
-- `CHANGELOG.md` — what each merge changed, architecturally
+## Tech stack
 
-The KB is committed back to the repo (loop-guarded via `paths-ignore`), so it's versioned
-and reviewable. Bootstrap or refresh locally:
-```bash
-python -m backend.knowledge.update --seed                  # from the current repo
-python -m backend.knowledge.update --diff-file merge.diff  # from a merge diff
-```
-Next: index the KB so reviews become repo-aware. See [ROADMAP.md](ROADMAP.md).
-
-See [DESIGN.md](DESIGN.md) for the architecture rationale and the 2-week roadmap.
+**React** (Vite) · **FastAPI** · **LangGraph + LangChain** · **Azure OpenAI** `gpt-4o` ·
+**ruff / Python ast** · **ChromaDB** · **MCP** (Model Context Protocol) · **GitPython**

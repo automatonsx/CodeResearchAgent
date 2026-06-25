@@ -43,6 +43,16 @@ def _sev_badge(sev: str) -> str:
             "minor": "🟡 minor", "suggestion": "🔵 suggestion"}.get(sev, sev)
 
 
+def _confidence_label(f: dict) -> str:
+    conf = f.get("confidence", "?")
+    breakdown = f.get("confidence_breakdown", {})
+    signals = breakdown.get("signals", [])
+    conf_str = f"{conf:.0%}" if isinstance(conf, float) else str(conf)
+    if signals:
+        conf_str += f" _({', '.join(signals)})_"
+    return conf_str
+
+
 def _finding_block(f: dict, source: str) -> list[str]:
     sev = f.get("severity", "?")
     short = _short_path(f.get("file", ""), source)
@@ -63,8 +73,52 @@ def _finding_block(f: dict, source: str) -> list[str]:
     lines.append(f"**Evidence:** {ev}")
     if f.get("research_basis"):
         lines.append("**Research:** " + " · ".join(f.get("research_basis")))
-    lines.append(f"*Effort: {f.get('effort', '?')} · Confidence: {f.get('confidence', '?')}*")
+    lines.append(f"*Effort: {f.get('effort', '?')} · Confidence: {_confidence_label(f)}*")
     lines.append("")
+    return lines
+
+
+_GRADE_ICON = {"A": "🟢", "B": "🔵", "C": "🟡", "D": "🔴"}
+
+
+def _analysis_quality_section(aq: dict) -> list[str]:
+    grade = aq.get("grade", "?")
+    icon = _GRADE_ICON.get(grade, "⚪")
+    overall_conf = aq.get("overall_confidence", 0.0)
+    ver_rate = aq.get("verification_rate", 0.0)
+    grounding = aq.get("grounding", {})
+    coverage = aq.get("coverage", {})
+    web = aq.get("web_research", {})
+    hall = aq.get("hallucination", {})
+    kept = aq.get("findings_kept", 0)
+    total = kept + aq.get("findings_dropped", 0)
+    tool_n = grounding.get("tool_grounded", 0)
+    files_rev = coverage.get("files_reviewed", 0)
+    files_skip = coverage.get("files_skipped", 0)
+
+    lines = [
+        "## 📊 Analysis Quality",
+        "",
+        f"**Grade: {icon} {grade}** — {aq.get('grade_rationale', '')}",
+        "",
+        "| Metric | Value | Interpretation |",
+        "|--------|-------|----------------|",
+        f"| Overall Confidence | **{overall_conf:.0%}** | Weighted avg of per-finding scores |",
+        f"| Critic Verification Rate | {ver_rate:.0%} | {kept}/{total} findings survived Critic |",
+        f"| Tool-Grounded Findings | {tool_n}/{kept} ({grounding.get('tool_grounded_pct', 0):.0%}) | Deterministic scanner output |",
+        f"| Research Citation Rate | {grounding.get('citation_rate', 0):.0%} | Findings with web or corpus citation |",
+        f"| File Coverage | {files_rev}/{files_rev + files_skip} ({coverage.get('coverage_pct', 0):.0%}) | Source files actually analyzed |",
+        f"| Web Sources | {web.get('sources_fetched', 0)} fetched / {web.get('sources_cited', 0)} cited | Cite rate: {web.get('cite_rate', 0):.0%} |",
+        f"| Hallucinations Caught | {hall.get('count', 0)} ({hall.get('rate', 0):.0%} of LLM findings) | Dropped by Critic quote-match check |",
+        "",
+        "> **How to read this:** The grade reflects how much of the analysis is anchored in",
+        "> real tool output and external evidence rather than pure LLM judgment. A or B means",
+        "> you can trust the findings; C means review borderline items manually; D means",
+        "> treat all LLM findings as suggestions requiring manual confirmation.",
+        "",
+        "---",
+        "",
+    ]
     return lines
 
 
@@ -92,8 +146,15 @@ def report_to_markdown(report: dict, source: str = "") -> str:
         ]
         if stats.get("web_sources"):
             parts.append(f"{stats['web_sources']} web sources consulted")
+        if stats.get("grade"):
+            grade = stats["grade"]
+            parts.append(f"analysis grade: {_GRADE_ICON.get(grade, '')} {grade}")
         lines.append("**Coverage:** " + " · ".join(parts))
     lines += ["", "---", "", "## Executive Summary", "", report.get("summary", ""), "", "---", ""]
+
+    aq = report.get("analysis_quality", {})
+    if aq:
+        lines += _analysis_quality_section(aq)
 
     # Group findings by category
     by_cat: dict[str, list[dict]] = {}
@@ -158,5 +219,18 @@ def save_report(report: dict, source: str = "") -> str:
     """Write the report as Markdown to reports/<slug>.md and return the path."""
     _REPORTS.mkdir(exist_ok=True)
     path = _REPORTS / f"{_name_for(source)}.md"
+    path.write_text(report_to_markdown(report, source), encoding="utf-8")
+    return str(path)
+
+
+def save_report_to_dir(report: dict, dest_dir: str, source: str = "") -> str:
+    """Write the report as Markdown into *dest_dir*/scout-report.md and return the path.
+
+    Used by run_standards() to place the report alongside SKILL.md in the target repo's
+    .claude/ directory so both artefacts live together in the repo.
+    """
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    path = dest / "scout-report.md"
     path.write_text(report_to_markdown(report, source), encoding="utf-8")
     return str(path)

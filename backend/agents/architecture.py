@@ -52,10 +52,22 @@ def architecture_node(state: ReviewState) -> ReviewState:
     reviewed: list[dict] = []
     for rel, absf in list(rel_to_abs.items())[:_MAX_FILES]:
         try:
-            content = Path(absf).read_text(encoding="utf-8", errors="ignore")[:_MAX_CHARS]
+            raw = Path(absf).read_text(encoding="utf-8", errors="ignore")
+            truncated = len(raw) > _MAX_CHARS
+            content = raw[:_MAX_CHARS]
         except Exception:
             content = ""
-        reviewed.append({"file": rel, "content": content})
+            truncated = False
+        entry: dict = {"file": rel, "content": content}
+        if truncated:
+            import sys
+            print(
+                f"[Scout/architecture] {rel} truncated to {_MAX_CHARS} chars "
+                f"(full size: {len(raw)} chars) — review may be incomplete.",
+                file=sys.stderr,
+            )
+            entry["truncated"] = True
+        reviewed.append(entry)
 
     # ------------------------------------------------------------------ #
     # 3. Web research — run before KB lookup so we can skip if both empty #
@@ -78,9 +90,28 @@ def architecture_node(state: ReviewState) -> ReviewState:
     # ------------------------------------------------------------------ #
     # 5. Build LLM payload and call                                       #
     # ------------------------------------------------------------------ #
+    # Collect issues already reported by prior agents so the architecture
+    # LLM does not duplicate them as design findings.
+    prior_findings = state.get("findings", [])
+    already_reported = []
+    for f in prior_findings:
+        rel = ""
+        try:
+            rel = os.path.relpath(f.get("file", ""), review_path).replace("\\", "/")
+        except Exception:
+            pass
+        issue_text = (f.get("issue") or "")[:100]
+        if issue_text:
+            already_reported.append({
+                "file": rel,
+                "category": f.get("category", ""),
+                "issue": issue_text,
+            })
+
     payload: dict = {
         "reviewed_files": reviewed,
         "web_research": web_results_for_prompt,
+        "already_reported_issues": already_reported,
     }
     if has_kb:
         payload["overview"] = kb.get("overview", "")

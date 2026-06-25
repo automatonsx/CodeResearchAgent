@@ -20,6 +20,8 @@ class ReviewState(TypedDict, total=False):
     critique: dict             # {dropped, low_confidence, needs_recheck, notes}
     iterations: int            # loop guard (max 2)
     final_report: dict         # {summary, recommendations, verdict, score}
+    agents_executed: list      # ordered list of agent names that ran successfully
+    standards: dict            # extracted coding standards (from standards_node)
 
 
 MAX_ITERATIONS = 2
@@ -44,4 +46,5 @@ def initial_state(source: str, input_type: str = "repo") -> ReviewState:
         critique={"dropped": [], "low_confidence": [], "needs_recheck": False, "notes": []},
         iterations=0,
         final_report={},
+        agents_executed=[],
     )

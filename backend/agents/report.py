@@ -6,6 +6,7 @@ import json
 
 from ..state import ReviewState, SEVERITY_ORDER
 from ..llm import chat_json, load_prompt
+from .confidence import analysis_quality
 
 # Score penalty per severity (out of 10).
 _PENALTY = {"critical": 4.0, "major": 2.0, "minor": 0.7, "suggestion": 0.2}
@@ -116,6 +117,10 @@ def report_node(state: ReviewState) -> ReviewState:
                 "query": r.get("query", ""),
             })
 
+    critique = state.get("critique", {})
+    dropped = critique.get("dropped", [])
+    aq = analysis_quality(state, findings, dropped)
+
     return {
         "final_report": {
             "summary": summary,
@@ -123,14 +128,17 @@ def report_node(state: ReviewState) -> ReviewState:
             "verdict": verdict,
             "score": score,
             "web_research_sources": web_sources,
+            "analysis_quality": aq,
             "stats": {
                 "verified": len(findings),
-                "dropped": len(state.get("critique", {}).get("dropped", [])),
+                "dropped": len(dropped),
                 "iterations": state.get("iterations", 0),
                 "language": ctx.get("language", "unknown"),
                 "reviewed": reviewed,
                 "skipped": skipped,
                 "web_sources": len(web_sources),
+                "grade": aq["grade"],
+                "agents_executed": state.get("agents_executed", []),
             },
         }
     }

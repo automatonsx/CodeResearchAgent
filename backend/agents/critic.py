@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..state import ReviewState, MAX_ITERATIONS
+from .confidence import score_finding
 
 _LOW_CONFIDENCE = 0.5
 
@@ -73,6 +74,9 @@ def critic_node(state: ReviewState) -> ReviewState:
                 dropped.append({"issue": f.get("issue", ""), "reason": "duplicate"})
             else:
                 seen.add(akey)
+                conf, breakdown = score_finding(f, critic_verified=True)
+                f["confidence"] = conf
+                f["confidence_breakdown"] = breakdown
                 kept.append(f)
             continue
 
@@ -94,8 +98,12 @@ def critic_node(state: ReviewState) -> ReviewState:
             dropped.append({"issue": f.get("issue", ""), "reason": "duplicate"})
             continue
         seen.add(key)
-        # 4. Low-confidence non-tool findings are flagged for re-check.
-        if not f.get("tool_grounded") and float(f.get("confidence", 0)) < _LOW_CONFIDENCE:
+        # 4. Score finding with all observable evidence before confidence check.
+        conf, breakdown = score_finding(f, critic_verified=True)
+        f["confidence"] = conf
+        f["confidence_breakdown"] = breakdown
+        # 5. Low-confidence non-tool findings are flagged for re-check.
+        if not f.get("tool_grounded") and conf < _LOW_CONFIDENCE:
             low_conf.append({"issue": f.get("issue", ""), "file": file, "line": line})
         kept.append(f)
 

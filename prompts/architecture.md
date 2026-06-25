@@ -36,6 +36,21 @@ Quality over quantity — a few substantive suggestions beat a long list of mino
 - If a change is consistent with the KB and well-designed, say so briefly rather than
   inventing problems.
 
+## Deduplication — skip already-reported issues
+
+The input includes an `already_reported_issues` list of findings already raised by the
+security and code-quality agents. **Do not re-flag these.** If the exact same code
+problem (e.g. SQL injection, hardcoded secret, bare except) is in that list, skip it —
+even if it has architectural implications. Focus your output on structural concerns not
+captured by those lower-level checkers:
+
+- Module boundaries, coupling, layering
+- Missing abstractions or patterns at the system level
+- Configuration, error handling, or observability gaps at the module level
+- Patterns that authoritative research shows cause maintenance problems
+
+Repeating a security finding as a design suggestion adds noise. Omit it.
+
 ---
 
 ## Output format

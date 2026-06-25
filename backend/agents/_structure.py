@@ -26,6 +26,7 @@ def structure_findings(
 
     enriched = []
     for r in raw:
+        snippet = read_snippet(r.get("file", ""), r.get("line", 0))
         enriched.append(
             {
                 "tool": r.get("tool"),
@@ -34,7 +35,9 @@ def structure_findings(
                 "file": r.get("file"),
                 "line": r.get("line"),
                 "message": r.get("message"),
-                "snippet": read_snippet(r.get("file", ""), r.get("line", 0)),
+                "snippet": snippet,
+                # Preserved so downstream nodes (standards_node) can quote the actual bad code
+                "_raw_snippet": snippet,
             }
         )
 
@@ -54,11 +57,23 @@ def structure_findings(
     try:
         data = chat_json(f"You are a precise {category} code reviewer.", prompt)
         findings = data.get("recommendations") or data.get("findings") or []
-    except Exception:
+    except Exception as exc:
+        import sys
+        print(
+            f"[Scout] structure_findings({prompt_name!r}) failed — returning empty list. "
+            f"Error: {exc}",
+            file=sys.stderr,
+        )
         findings = []
 
     # Backfill required fields and tag the source category.
     valid_codes = {r.get("code") for r in raw}
+    # Build a (file, line) → snippet index so we can reattach the real bad-code snippet.
+    snippet_index: dict[tuple[str, int], str] = {
+        (e["file"] or "", e["line"] or 0): e["_raw_snippet"]
+        for e in enriched
+        if e.get("_raw_snippet")
+    }
     out = []
     for f in findings:
         f.setdefault("type", category)
@@ -68,5 +83,9 @@ def structure_findings(
         f["category"] = category
         # tool_evidence presence => high trust; absence => LLM judgment (Critic verifies).
         f["tool_grounded"] = f.get("tool_evidence") in valid_codes
+        # Reattach the real offending snippet from the repo so downstream nodes can quote it.
+        key = (f.get("file") or "", f.get("line") or 0)
+        if key in snippet_index:
+            f.setdefault("_raw_snippet", snippet_index[key])
         out.append(f)
     return out
