@@ -11,6 +11,7 @@ import json
 
 from ..llm import chat_json, load_prompt
 from ._snippet import read_snippet
+from ..corpus.rule_map import citation_for
 
 
 def structure_findings(
@@ -87,5 +88,11 @@ def structure_findings(
         key = (f.get("file") or "", f.get("line") or 0)
         if key in snippet_index:
             f.setdefault("_raw_snippet", snippet_index[key])
+        # Deterministic citation: if the rule code maps to a best practice, attach it
+        # immediately — the grounding node will skip this finding (already has research_basis).
+        if f["tool_grounded"] and not f.get("research_basis"):
+            citation = citation_for(f.get("tool_evidence") or "")
+            if citation:
+                f["research_basis"] = [citation]
         out.append(f)
     return out

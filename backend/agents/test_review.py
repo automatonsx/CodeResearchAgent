@@ -103,7 +103,7 @@ def _corpus_for_testing(language: str) -> list[dict]:
     seen: set[str] = set()
     hits: list[dict] = []
     for q in queries:
-        for h in corpus_retrieve(q, k=4):
+        for h in corpus_retrieve(q, k=4, category="testing"):
             pid = h.get("practice_id") or h.get("title", "")
             if pid and pid not in seen:
                 seen.add(pid)

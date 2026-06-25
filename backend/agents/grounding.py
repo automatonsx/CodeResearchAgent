@@ -14,8 +14,8 @@ def grounding_node(state: ReviewState) -> ReviewState:
     findings = state.get("findings", [])
     citations = []
     for f in findings:
-        # KB-grounded (architecture/design) findings already carry a KB citation — leave them.
-        if f.get("kb_grounded"):
+        # Skip if already cited: KB-grounded (architecture) or rule-map grounded (tool findings).
+        if f.get("kb_grounded") or f.get("research_basis"):
             continue
         query = " ".join(
             str(x) for x in [f.get("type"), f.get("tool_evidence"), f.get("issue")] if x

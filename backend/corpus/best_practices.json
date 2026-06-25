@@ -1,6 +1,7 @@
 [
   {
     "id": "bp-secrets",
+    "category": "security",
     "title": "Never hardcode secrets",
     "principle": "Credentials, API keys, and passwords must never be committed in source. Load them from environment variables or a secrets manager so they can be rotated without code changes.",
     "source": "OWASP Secrets Management Cheat Sheet",
@@ -8,6 +9,7 @@
   },
   {
     "id": "bp-sql-injection",
+    "category": "security",
     "title": "Use parameterized queries",
     "principle": "Build SQL with bound parameters, never string concatenation or f-strings on user input. Parameterization is the primary defense against SQL injection (OWASP A03).",
     "source": "OWASP Top 10 A03:2021 — Injection",
@@ -15,6 +17,7 @@
   },
   {
     "id": "bp-shell-injection",
+    "category": "security",
     "title": "Avoid shell=True with untrusted input",
     "principle": "Passing shell=True to subprocess invites command injection. Prefer passing an argument list so arguments are not re-parsed by a shell.",
     "source": "Python docs — subprocess security considerations",
@@ -22,6 +25,7 @@
   },
   {
     "id": "bp-eval",
+    "category": "security",
     "title": "Do not use eval/exec on dynamic input",
     "principle": "eval and exec execute arbitrary code. Use ast.literal_eval for data literals, or an explicit dispatch table for behavior.",
     "source": "Python docs — ast.literal_eval; Bandit B307",
@@ -29,6 +33,7 @@
   },
   {
     "id": "bp-input-validation",
+    "category": "security",
     "title": "Validate and sanitize external input",
     "principle": "Treat all external input as untrusted. Validate type, range, and format at the system boundary (HTTP request, file, env var) before any internal use.",
     "source": "OWASP Input Validation Cheat Sheet",
@@ -36,6 +41,7 @@
   },
   {
     "id": "bp-tls-verify",
+    "category": "security",
     "title": "Never disable TLS certificate verification",
     "principle": "Setting verify=False in requests or ssl_check=False silently exposes all HTTPS traffic to man-in-the-middle attacks. Fix certificate issues at the infra level.",
     "source": "OWASP Transport Layer Security Cheat Sheet; Bandit B501",
@@ -43,6 +49,7 @@
   },
   {
     "id": "bp-weak-hash",
+    "category": "security",
     "title": "Never use MD5 or SHA-1 for security purposes",
     "principle": "MD5 and SHA-1 are cryptographically broken. Use SHA-256 or higher for integrity checks and bcrypt/argon2 for password hashing.",
     "source": "NIST SP 800-131A; OWASP Cryptographic Storage Cheat Sheet",
@@ -50,6 +57,7 @@
   },
   {
     "id": "bp-path-traversal",
+    "category": "security",
     "title": "Validate file paths against a trusted root",
     "principle": "User-supplied paths must be resolved and checked against an allowed root directory to prevent path traversal (../../../etc/passwd).",
     "source": "OWASP Path Traversal — CWE-22",
@@ -57,6 +65,7 @@
   },
   {
     "id": "bp-xss-innerhtml",
+    "category": "security",
     "title": "Do not assign to innerHTML with untrusted content",
     "principle": "innerHTML = userContent executes embedded scripts and allows XSS. Use textContent for text or a sanitizer (DOMPurify) for HTML.",
     "source": "OWASP Cross-Site Scripting Prevention Cheat Sheet; MDN",
@@ -64,6 +73,7 @@
   },
   {
     "id": "bp-xss-docwrite",
+    "category": "security",
     "title": "Avoid document.write with dynamic content",
     "principle": "document.write can inject arbitrary HTML/JS when the argument contains user data. Use DOM APIs (createElement, appendChild) instead.",
     "source": "OWASP DOM-based XSS Prevention Cheat Sheet",
@@ -71,6 +81,7 @@
   },
   {
     "id": "bp-csrf",
+    "category": "security",
     "title": "Protect state-changing endpoints against CSRF",
     "principle": "POST/PUT/DELETE endpoints that change state must verify a CSRF token or enforce SameSite cookie policy so cross-origin requests are rejected.",
     "source": "OWASP CSRF Prevention Cheat Sheet",
@@ -78,6 +89,7 @@
   },
   {
     "id": "bp-least-privilege",
+    "category": "security",
     "title": "Apply least-privilege access to resources",
     "principle": "Services, DB connections, and file handles should request only the permissions they need. A DB user that can only SELECT cannot be used to DROP tables.",
     "source": "NIST AC-6 Least Privilege; OWASP Access Control Cheat Sheet",
@@ -85,6 +97,7 @@
   },
   {
     "id": "bp-auth-info-leak",
+    "category": "security",
     "title": "Use generic error messages for authentication failures",
     "principle": "Distinguish \"invalid credentials\" from \"account not found\" only internally; return the same generic message externally to prevent user enumeration.",
     "source": "OWASP Authentication Cheat Sheet — User Enumeration",
@@ -92,6 +105,7 @@
   },
   {
     "id": "bp-dependencies",
+    "category": "security",
     "title": "Keep dependencies up to date and audited",
     "principle": "Outdated dependencies are one of the leading sources of known vulnerabilities (OWASP A06). Pin versions, run automated audits (pip audit, npm audit), and update regularly.",
     "source": "OWASP Top 10 A06:2021 — Vulnerable and Outdated Components",
@@ -99,6 +113,7 @@
   },
   {
     "id": "bp-bare-except",
+    "category": "code",
     "title": "Never use bare except",
     "principle": "A bare 'except:' swallows everything including KeyboardInterrupt and SystemExit, hiding bugs. Catch the specific exception types you expect.",
     "source": "PEP 8 — Programming Recommendations",
@@ -106,6 +121,7 @@
   },
   {
     "id": "bp-swallow-exception",
+    "category": "code",
     "title": "Don't silently swallow exceptions",
     "principle": "try/except/pass discards errors with no trace. At minimum log the exception so failures are observable in production.",
     "source": "Bandit B110; Google Python Style Guide",
@@ -113,6 +129,7 @@
   },
   {
     "id": "bp-mutable-default",
+    "category": "code",
     "title": "Avoid mutable default arguments",
     "principle": "A list/dict default is created once and shared across calls, causing state to leak between invocations. Default to None and create the container inside the function.",
     "source": "Python Common Gotchas; Ruff B006",
@@ -120,6 +137,7 @@
   },
   {
     "id": "bp-complexity",
+    "category": "code",
     "title": "Keep functions simple",
     "principle": "High cyclomatic complexity correlates with defects and makes code hard to test. Extract helpers and reduce branching when complexity exceeds ~10.",
     "source": "McCabe, 'A Complexity Measure' (1976); Ruff C901",
@@ -127,6 +145,7 @@
   },
   {
     "id": "bp-dead-code",
+    "category": "code",
     "title": "Remove dead/unused code",
     "principle": "Unused variables and imports add noise and can hide bugs. Delete them; tools like ruff flag F401/F841.",
     "source": "Ruff Pyflakes rules; Clean Code (Martin)",
@@ -134,20 +153,23 @@
   },
   {
     "id": "bp-docstrings",
+    "category": "code",
     "title": "Document public functions",
     "principle": "Public functions and modules should have docstrings describing intent, args, and return values so callers don't have to read the implementation.",
     "source": "PEP 257 — Docstring Conventions",
-    "tags": ["style", "docs", "AST-DOC"]
+    "tags": ["code", "docs", "AST-DOC"]
   },
   {
     "id": "bp-type-hints",
+    "category": "code",
     "title": "Add type hints to public APIs",
     "principle": "Type hints catch whole classes of bugs via static analysis and document intent. Annotate public function signatures.",
     "source": "PEP 484 — Type Hints",
-    "tags": ["style", "types", "maintainability"]
+    "tags": ["code", "types", "maintainability"]
   },
   {
     "id": "bp-magic-numbers",
+    "category": "code",
     "title": "Replace magic numbers and strings with named constants",
     "principle": "Unexplained literals (3, 86400, 'admin') make intent opaque and create maintenance traps when the value must change. Extract them as named constants.",
     "source": "Clean Code — Robert C. Martin; PEP 8",
@@ -155,6 +177,7 @@
   },
   {
     "id": "bp-long-functions",
+    "category": "code",
     "title": "Keep functions short and focused",
     "principle": "Functions longer than 40–50 lines typically do more than one thing. Extract cohesive sub-operations into well-named helper functions.",
     "source": "Clean Code — Robert C. Martin; Google Python Style Guide",
@@ -162,6 +185,7 @@
   },
   {
     "id": "bp-deep-nesting",
+    "category": "code",
     "title": "Avoid deep nesting",
     "principle": "More than 3 levels of indentation (if/for/try) makes control flow hard to reason about. Use guard clauses, early return, and extraction to flatten nesting.",
     "source": "Clean Code; Refactoring — Fowler",
@@ -169,6 +193,7 @@
   },
   {
     "id": "bp-global-state",
+    "category": "code",
     "title": "Avoid global mutable state",
     "principle": "Module-level mutable variables are invisible dependencies that make code non-deterministic and hard to test. Pass state explicitly or encapsulate in a class.",
     "source": "Clean Architecture — Robert C. Martin; Python docs",
@@ -176,6 +201,7 @@
   },
   {
     "id": "bp-early-return",
+    "category": "code",
     "title": "Use guard clauses and early return",
     "principle": "Validate preconditions at the top and return/raise immediately. This keeps the happy path un-indented and preconditions explicit.",
     "source": "Refactoring — Fowler; Clean Code",
@@ -183,104 +209,119 @@
   },
   {
     "id": "bp-srp",
+    "category": "design",
     "title": "Apply Single Responsibility Principle",
     "principle": "A module, class, or function should have one reason to change. When a unit does two unrelated things, split it — each part becomes easier to test and replace.",
     "source": "Clean Architecture — Robert C. Martin; SOLID Principles",
-    "tags": ["architecture", "design", "SOLID", "SRP"]
+    "tags": ["design", "SOLID", "SRP"]
   },
   {
     "id": "bp-dry",
+    "category": "design",
     "title": "Don't Repeat Yourself (DRY)",
     "principle": "Every piece of knowledge must have a single, unambiguous, authoritative representation. Duplication means two places to update when the rule changes.",
     "source": "The Pragmatic Programmer — Hunt & Thomas",
-    "tags": ["architecture", "design", "DRY", "maintainability"]
+    "tags": ["design", "DRY", "maintainability"]
   },
   {
     "id": "bp-dependency-injection",
+    "category": "design",
     "title": "Depend on abstractions, inject dependencies",
     "principle": "High-level modules should not depend on low-level implementations. Inject concrete dependencies (DB, HTTP client, clock) rather than constructing them internally — makes code testable and swappable.",
     "source": "SOLID — Dependency Inversion Principle; Clean Architecture",
-    "tags": ["architecture", "design", "SOLID", "DI", "testability"]
+    "tags": ["design", "SOLID", "DI", "testability"]
   },
   {
     "id": "bp-open-closed",
+    "category": "design",
     "title": "Design for extension, not modification",
     "principle": "Existing, tested code should not need to change to accommodate new behaviors. Use polymorphism, strategy pattern, or hooks so new cases extend rather than fork existing logic.",
     "source": "Open/Closed Principle — Bertrand Meyer; SOLID",
-    "tags": ["architecture", "design", "SOLID", "OCP"]
+    "tags": ["design", "SOLID", "OCP"]
   },
   {
     "id": "bp-separation-concerns",
+    "category": "design",
     "title": "Separate data access, business logic, and presentation",
     "principle": "Mixing SQL queries with business rules in view handlers creates a tightly coupled ball-of-mud. Separate layers so each can change independently.",
     "source": "Separation of Concerns — Dijkstra; Clean Architecture",
-    "tags": ["architecture", "design", "layering", "SoC"]
+    "tags": ["design", "layering", "SoC"]
   },
   {
     "id": "bp-repository-pattern",
+    "category": "design",
     "title": "Use the Repository pattern for data access",
     "principle": "Data access logic belongs in a dedicated repository layer, not scattered across service code. Repositories abstract the storage mechanism and make switching or testing storage trivial.",
     "source": "Domain-Driven Design — Eric Evans; Martin Fowler — Patterns of Enterprise Application Architecture",
-    "tags": ["architecture", "design", "repository", "database"]
+    "tags": ["design", "repository", "database"]
   },
   {
     "id": "bp-config-externalization",
+    "category": "design",
     "title": "Externalize all configuration",
     "principle": "Port numbers, URLs, feature flags, and thresholds must not be baked into code. Load from environment variables or a config file so deployments differ only in config, not code.",
     "source": "12-Factor App — III. Config; OWASP Configuration Cheat Sheet",
-    "tags": ["architecture", "config", "12factor", "devops"]
+    "tags": ["design", "config", "12factor", "devops"]
   },
   {
     "id": "bp-error-boundaries",
+    "category": "design",
     "title": "Handle errors at appropriate boundaries",
     "principle": "Propagate exceptions to the outermost layer that has enough context to handle them meaningfully. Don't catch-and-ignore internally; don't let implementation exceptions leak across API boundaries.",
     "source": "Clean Code — Robert C. Martin; Domain-Driven Design",
-    "tags": ["architecture", "error-handling", "robustness"]
+    "tags": ["design", "error-handling", "robustness"]
   },
   {
     "id": "bp-interface-design",
+    "category": "design",
     "title": "Design interfaces before implementation",
     "principle": "Define the contract (signature, behavior, errors) of a module before writing its internals. This surfaces coupling early and drives a consumer-first API.",
     "source": "Interface Segregation Principle — SOLID; Test-Driven Development",
-    "tags": ["architecture", "design", "SOLID", "ISP"]
+    "tags": ["design", "SOLID", "ISP"]
   },
   {
     "id": "bp-tests",
+    "category": "testing",
     "title": "Cover changed logic with tests",
     "principle": "New or modified behavior should ship with tests. Untested branches are the most common source of regressions.",
     "source": "Google Testing Blog; Working Effectively with Legacy Code — Feathers",
-    "tags": ["test", "coverage", "missing-tests"]
+    "tags": ["testing", "coverage", "missing-tests"]
   },
   {
     "id": "bp-unit-test-public",
+    "category": "testing",
     "title": "Test public interfaces, not private internals",
     "principle": "Tests coupled to private methods break on every refactor. Write tests that verify observable behavior through the public API — they survive implementation changes.",
     "source": "Test-Driven Development — Kent Beck; Google Testing Blog",
-    "tags": ["test", "unit-test", "design"]
+    "tags": ["testing", "unit-test", "design"]
   },
   {
     "id": "bp-aaa-pattern",
+    "category": "testing",
     "title": "Structure tests with Arrange-Act-Assert",
     "principle": "Each test should set up its context (Arrange), execute the unit under test (Act), and verify the outcome (Assert). One assert per logical behavior keeps failures informative.",
     "source": "TDD by Example — Kent Beck; xUnit Patterns",
-    "tags": ["test", "structure", "readability"]
+    "tags": ["testing", "structure", "readability"]
   },
   {
     "id": "bp-mock-at-boundaries",
+    "category": "testing",
     "title": "Mock only at system boundaries",
     "principle": "Mock external services (HTTP, DB, clock, file system) but not internal classes. Over-mocking creates tests that pass against incorrect implementations.",
     "source": "Growing Object-Oriented Software Guided by Tests — Freeman & Pryce",
-    "tags": ["test", "mocking", "integration"]
+    "tags": ["testing", "mocking", "integration"]
   },
   {
     "id": "bp-logging",
+    "category": "observability",
     "title": "Use logging, not print",
     "principle": "Use the logging module instead of print so output has levels, can be filtered, and routed to handlers in production without code changes.",
     "source": "Python Logging HOWTO",
-    "tags": ["style", "logging", "observability"]
+    "tags": ["observability", "logging"]
   },
   {
     "id": "bp-structured-logging",
+    "category": "observability",
     "title": "Emit structured (JSON) logs in production",
     "principle": "Structured logs are machine-parseable by aggregators (Datadog, ELK). Include request_id, user_id, duration, and outcome as fields rather than embedded in message strings.",
     "source": "12-Factor App — XI. Logs; OpenTelemetry Logging",
@@ -288,6 +329,7 @@
   },
   {
     "id": "bp-log-levels",
+    "category": "observability",
     "title": "Use appropriate log levels",
     "principle": "DEBUG for developer tracing, INFO for normal operations, WARNING for recoverable anomalies, ERROR for failures that need attention. Reserve CRITICAL for system-wide outages.",
     "source": "Python Logging HOWTO; Google Site Reliability Engineering",
@@ -295,6 +337,7 @@
   },
   {
     "id": "bp-no-sensitive-logs",
+    "category": "security",
     "title": "Never log sensitive data",
     "principle": "Passwords, tokens, credit card numbers, and PII must never appear in log output. Redact or omit them before logging; log IDs instead of values.",
     "source": "OWASP Logging Cheat Sheet; GDPR Article 32",
@@ -302,34 +345,39 @@
   },
   {
     "id": "bp-js-strict-equality",
+    "category": "code",
     "title": "Use strict equality (===) in JavaScript",
     "principle": "== in JavaScript performs implicit type coercion that produces surprising results (0 == '0' is true). Use === and !== so comparisons are type-safe.",
     "source": "MDN — Equality comparisons and sameness; Airbnb JS Style Guide",
-    "tags": ["javascript", "typescript", "code", "bugs"]
+    "tags": ["code", "javascript", "typescript", "bugs"]
   },
   {
     "id": "bp-js-no-var",
+    "category": "code",
     "title": "Use const and let instead of var",
     "principle": "var is function-scoped and hoisted, causing subtle bugs in loops and closures. const/let are block-scoped and make intent (mutability) explicit.",
     "source": "MDN — let/const; ECMAScript 2015 (ES6) specification",
-    "tags": ["javascript", "typescript", "code", "scope"]
+    "tags": ["code", "javascript", "typescript", "scope"]
   },
   {
     "id": "bp-promise-rejection",
+    "category": "code",
     "title": "Handle all Promise rejections",
     "principle": "Unhandled Promise rejections crash Node.js processes and silently lose errors in browsers. Always attach .catch() or use async/await with try/catch.",
     "source": "MDN — Promise; Node.js unhandledRejection event",
-    "tags": ["javascript", "typescript", "async", "error-handling"]
+    "tags": ["code", "javascript", "typescript", "async", "error-handling"]
   },
   {
     "id": "bp-ts-strict",
+    "category": "code",
     "title": "Enable TypeScript strict mode",
     "principle": "strict: true enables noImplicitAny, strictNullChecks, and other checks that catch a large class of runtime errors at compile time. Start strict on new projects; add it incrementally to existing ones.",
     "source": "TypeScript Handbook — Strict mode; Google TypeScript Style Guide",
-    "tags": ["typescript", "types", "code-quality"]
+    "tags": ["code", "typescript", "types"]
   },
   {
     "id": "bp-no-sensitive-response",
+    "category": "security",
     "title": "Never expose sensitive data in API responses",
     "principle": "Password hashes, tokens, internal IDs, and stack traces must be stripped from API responses. Serialize only the fields the client needs (allowlist, not blocklist).",
     "source": "OWASP API Security Top 10 — API3:2023 Broken Object Property Level Authorization",
@@ -337,6 +385,7 @@
   },
   {
     "id": "bp-http-status-codes",
+    "category": "api",
     "title": "Return correct HTTP status codes",
     "principle": "200 for success, 201 for creation, 400 for client errors, 401/403 for auth, 404 for missing, 500 for server errors. Returning 200 with an error body breaks HTTP semantics and breaks clients.",
     "source": "RFC 9110 — HTTP Semantics; RESTful Web API Patterns and Practices",
@@ -344,6 +393,7 @@
   },
   {
     "id": "bp-api-validation",
+    "category": "security",
     "title": "Validate all API inputs at the boundary",
     "principle": "Validate schema, types, ranges, and required fields as the first step in every endpoint handler — before any business logic or DB access. Use a schema library (Pydantic, Zod, Joi).",
     "source": "OWASP API Security Top 10 — API1:2023 Broken Object Level Authorization",
@@ -351,6 +401,7 @@
   },
   {
     "id": "bp-rate-limiting",
+    "category": "security",
     "title": "Rate-limit sensitive endpoints",
     "principle": "Login, password reset, and OTP endpoints must be rate-limited to prevent brute-force attacks. Use token-bucket or sliding-window algorithms with per-IP and per-account limits.",
     "source": "OWASP API Security Top 10 — API4:2023 Unrestricted Resource Consumption",
@@ -358,6 +409,7 @@
   },
   {
     "id": "bp-immutability",
+    "category": "code",
     "title": "Prefer immutable data structures",
     "principle": "Mutable shared state is the most common source of concurrency bugs and unexpected side effects. Prefer immutable records/namedtuples/frozen dataclasses; copy-on-write when mutation is needed.",
     "source": "Effective Java — Joshua Bloch; Functional Programming Principles",
@@ -365,6 +417,7 @@
   },
   {
     "id": "bp-context-managers",
+    "category": "code",
     "title": "Use context managers for resource lifecycle",
     "principle": "Files, DB connections, and locks must be closed/released even when exceptions occur. Use with statements (context managers) rather than manual try/finally cleanup.",
     "source": "PEP 343 — The with Statement; Python docs — contextlib",
