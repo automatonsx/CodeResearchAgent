@@ -54,3 +54,14 @@ export async function reviewStream(source, inputType, onUpdate) {
   }
   return finalReport;
 }
+
+// Research chat: ask a question about a codebase, answered by LLM + KB.
+export async function researchChat(question, source = "") {
+  const res = await fetch(`${BASE}/research`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, source }),
+  });
+  if (!res.ok) throw new Error(`Backend error ${res.status}`);
+  return await res.json();
+}
