@@ -15,6 +15,7 @@ from .agents import (
     context_node,
     code_quality_node,
     security_node,
+    architecture_node,
     grounding_node,
     critic_node,
     critic_router,
@@ -34,6 +35,7 @@ def build_graph():
     g.add_node("context", context_node)
     g.add_node("code_quality", code_quality_node)
     g.add_node("security", security_node)
+    g.add_node("architecture", architecture_node)   # KB-grounded design review
     g.add_node("grounding", grounding_node)
     g.add_node("critic", critic_node)
     g.add_node("recheck", _count_iteration)   # increments the loop guard
@@ -42,7 +44,8 @@ def build_graph():
     g.add_edge(START, "context")
     g.add_edge("context", "code_quality")
     g.add_edge("code_quality", "security")
-    g.add_edge("security", "grounding")
+    g.add_edge("security", "architecture")
+    g.add_edge("architecture", "grounding")
     g.add_edge("grounding", "critic")
 
     # Conditional Critic loop: re-check flagged findings, or finalize the report.

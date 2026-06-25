@@ -192,6 +192,7 @@ textarea::placeholder { color: #6b6088; }
   padding: 1px 8px; font-family: "JetBrains Mono", ui-monospace, monospace; color: var(--brand);
 }
 .tool.judgment { color: #c4b5fd; }
+.tool.kb { color: #67e8f9; }
 .conf, .effort { color: var(--muted); }
 .issue { font-weight: 600; margin: 3px 0; }
 .suggest { color: #cdc2e6; font-size: 14px; margin: 4px 0; }

@@ -30,8 +30,10 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 - [x] **Self-maintaining architecture KB** — `kb-update.yml` distills each merge to `main`
       into `ai/knowledge/` (`architecture.json` = truth, `ARCHITECTURE.md` = readable,
       `CHANGELOG.md` = per-merge log). Seed: `python -m backend.knowledge.update --seed`.
-- [ ] **Consume the KB in reviews** — index it in ChromaDB so the reviewer is repo-aware
-      ("this breaks the pattern in module X").
+- [x] **Consume the KB in reviews** — an Architecture & Design agent looks up the relevant
+      KB modules for the reviewed files and produces repo-aware suggestions (cited "KB: …").
+      Active only when the code maps to a known module (your own PRs); quiet on external repos.
+- [ ] Index the KB in ChromaDB for fuzzy/cross-module retrieval (currently direct lookup).
 - [ ] **External benchmarking** — "what others do better" (cross-repo / industry). Later.
 
 ## 🌭 Later (the bigger vision)

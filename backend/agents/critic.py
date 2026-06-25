@@ -27,6 +27,10 @@ def _line_exists(file: str, line: int) -> bool:
     return lines is not None and 1 <= int(line or 0) <= len(lines)
 
 
+def _file_exists(file: str) -> bool:
+    return _read_lines(file) is not None
+
+
 def _norm(s: str) -> str:
     return "".join(s.split()).lower()
 
@@ -57,8 +61,23 @@ def critic_node(state: ReviewState) -> ReviewState:
 
     for f in findings:
         file, line = f.get("file", ""), f.get("line", 0)
+        ftype = f.get("type")
+
+        # KB-grounded architecture/design findings are file-level (no precise line).
+        # Verify the file exists, dedupe by file+issue, and keep — they are advisory.
+        if ftype in ("architecture", "design"):
+            akey = (file, ftype, f.get("issue", "")[:50])
+            if not _file_exists(file):
+                dropped.append({"issue": f.get("issue", ""), "reason": "file not found"})
+            elif akey in seen:
+                dropped.append({"issue": f.get("issue", ""), "reason": "duplicate"})
+            else:
+                seen.add(akey)
+                kept.append(f)
+            continue
+
         # Collapse the same issue reported at one location (e.g. ruff B006 + AST-MUT).
-        key = (file, line, f.get("type"))
+        key = (file, line, ftype)
 
         # 1. No finding without a verifiable file:line.
         if not _line_exists(file, line):
@@ -86,6 +105,10 @@ def critic_node(state: ReviewState) -> ReviewState:
     if changed:
         scoped = []
         for f in kept:
+            # File-level KB suggestions aren't line-scoped — always keep them.
+            if f.get("type") in ("architecture", "design"):
+                scoped.append(f)
+                continue
             cl = changed.get(f.get("file", ""), [])
             if not cl or any(abs(int(f.get("line", 0)) - c) <= 2 for c in cl):
                 scoped.append(f)

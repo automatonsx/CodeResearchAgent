@@ -16,9 +16,11 @@ function Finding({ f }) {
       <div className="finding-head">
         <span className={`badge ${f.severity}`}>{f.severity}</span>
         <span className="ftype">{f.type}</span>
-        <span className="floc">{fileName(f.file)}:{f.line}</span>
+        <span className="floc">{fileName(f.file)}{f.line ? `:${f.line}` : ""}</span>
         {f.tool_evidence ? (
           <span className="tool" title="Ground-truth tool rule">🔧 {f.tool_evidence}</span>
+        ) : f.kb_grounded ? (
+          <span className="tool kb" title="Grounded in the project knowledge base">🧠 KB</span>
         ) : (
           <span className="tool judgment" title="LLM judgment — Critic-verified">⚖ judgment</span>
         )}

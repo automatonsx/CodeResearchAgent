@@ -17,6 +17,7 @@ tools (`ruff`/`ast`/`semgrep`) and the **Critic verify** before anything is show
 | **Context Extractor** | Detect languages, find source files to review | file walk / diff parse |
 | **Code-Quality Agent** | Smells, complexity, dead code, missing tests | `ruff`+`ast` (Python), `eslint` (JS/TS); LLM reviewer (other langs) |
 | **Security Agent** | Secrets, injection, unsafe calls | `ruff` bandit (`S`), `eslint` (no-eval…), `semgrep`*, generic secret/pattern scan |
+| **Architecture & Design** | Repo-aware suggestions (separation of concerns, consistency with established patterns) | the project **knowledge base** (`ai/knowledge`) |
 | **Grounding** | Attach a best-practice citation to each finding | ChromaDB corpus |
 | **Critic** | Re-open each `file:line`; drop false positives → loop | re-reads + verifies quoted code |
 | **Report Generator** | Prioritize, score, verdict, summary | — |

@@ -52,7 +52,8 @@ def report_to_markdown(report: dict, source: str = "") -> str:
 
     for f in report.get("recommendations", []):
         sev = f.get("severity", "?")
-        loc = f"{_short_path(f.get('file', ''), source)}:{f.get('line', '')}"
+        short = _short_path(f.get("file", ""), source)
+        loc = f"{short}:{f['line']}" if f.get("line") else short
         lines.append(f"### [{sev}] {f.get('type', '')} — `{loc}`")
         lines.append(f"- **Issue:** {f.get('issue', '')}")
         if f.get("suggestion"):

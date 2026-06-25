@@ -4,6 +4,7 @@ const STEPS = [
   { node: "context", label: "Context Extractor", desc: "Detect stack + files" },
   { node: "code_quality", label: "Code-Quality Agent", desc: "ruff + AST findings" },
   { node: "security", label: "Security Agent", desc: "bandit (S) rules / semgrep" },
+  { node: "architecture", label: "Architecture & Design", desc: "KB-grounded suggestions" },
   { node: "grounding", label: "Grounding", desc: "Attach corpus citations" },
   { node: "critic", label: "Critic", desc: "Verify file:line, drop false positives" },
   { node: "recheck", label: "↻ Re-check", desc: "Critic loop fired" },
