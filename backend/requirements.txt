@@ -11,3 +11,8 @@ gitpython
 # semgrep is optional and not well-supported on native Windows.
 # The Security agent falls back to ruff's bandit (S) rules + AST checks if absent.
 # Install separately to enable: pip install semgrep
+
+# tavily-python is optional — enables high-quality web+research search in the Architecture agent.
+# Without it, the agent falls back to free Semantic Scholar + ArXiv APIs (no key required).
+# Set TAVILY_API_KEY env var after installing: pip install tavily-python
+# Set WEB_RESEARCH_ENABLED=false to disable all web search in the Architecture agent.

@@ -1,7 +1,8 @@
 """LangGraph wiring for Scout (research-aware code review).
 
-  Context -> Code-Quality -> Security -> Grounding -> Critic --(recheck)--> Code-Quality
-                                                          \--(validated)--> Report -> END
+  Context -> Code-Quality -> Security -> Architecture -> Test-Review
+          -> Grounding -> Critic --(recheck)--> Code-Quality
+                              \--(validated)--> Report -> END
 
 The Critic -> re-check loop is the agentic twist; capped at MAX_ITERATIONS (state.py).
 """
@@ -16,6 +17,7 @@ from .agents import (
     code_quality_node,
     security_node,
     architecture_node,
+    test_review_node,
     grounding_node,
     critic_node,
     critic_router,
@@ -35,17 +37,19 @@ def build_graph():
     g.add_node("context", context_node)
     g.add_node("code_quality", code_quality_node)
     g.add_node("security", security_node)
-    g.add_node("architecture", architecture_node)   # KB-grounded design review
+    g.add_node("architecture", architecture_node)   # KB-grounded + web-research design review
+    g.add_node("test_review", test_review_node)     # missing test coverage + test suggestions
     g.add_node("grounding", grounding_node)
     g.add_node("critic", critic_node)
-    g.add_node("recheck", _count_iteration)   # increments the loop guard
+    g.add_node("recheck", _count_iteration)         # increments the loop guard
     g.add_node("report", report_node)
 
     g.add_edge(START, "context")
     g.add_edge("context", "code_quality")
     g.add_edge("code_quality", "security")
     g.add_edge("security", "architecture")
-    g.add_edge("architecture", "grounding")
+    g.add_edge("architecture", "test_review")
+    g.add_edge("test_review", "grounding")
     g.add_edge("grounding", "critic")
 
     # Conditional Critic loop: re-check flagged findings, or finalize the report.
