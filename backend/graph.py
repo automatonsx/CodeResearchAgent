@@ -33,42 +33,50 @@ _SOURCE_EXTENSIONS = {
 }
 
 
-def _assert_repo_unmodified(review_path: str) -> None:
-    """Raise RuntimeError if the pipeline modified any source file in the target repo.
+def _dirty_source_files(review_path: str) -> set[str]:
+    """Return the set of source files with uncommitted changes in *review_path*.
 
-    Only runs when review_path has its own .git directory (i.e. is a standalone
-    repo or a GitHub clone), so a sample_repo nested inside Scout's own tree is
-    not mistakenly checked against Scout's diff.
+    Returns an empty set if review_path has no .git, git is unavailable, or the
+    command times out.
     """
     import subprocess
     from pathlib import Path
 
     if not review_path:
-        return
+        return set()
     root = Path(review_path)
-    # Skip the check unless this path is the root of its own git repo.
     if not (root / ".git").exists():
-        return
-
+        return set()
     try:
         result = subprocess.run(
             ["git", "-C", review_path, "diff", "--name-only"],
             capture_output=True, text=True, timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return  # git not available or timed out — skip
-
+        return set()
     if result.returncode != 0:
-        return
-
-    modified = [
+        return set()
+    return {
         f.strip() for f in result.stdout.splitlines()
         if any(f.strip().endswith(ext) for ext in _SOURCE_EXTENSIONS)
-    ]
-    if modified:
+    }
+
+
+def _assert_repo_unmodified(review_path: str, pre_run: set[str] | None = None) -> None:
+    """Raise RuntimeError only if Scout itself modified source files during the run.
+
+    Compares the dirty-file set before and after the pipeline. Files that were
+    already modified before Scout ran (pre-existing uncommitted changes) are
+    excluded — only *new* modifications introduced by the pipeline are flagged.
+
+    Only active when review_path has its own .git directory.
+    """
+    post_run = _dirty_source_files(review_path)
+    new_modifications = post_run - (pre_run or set())
+    if new_modifications:
         raise RuntimeError(
             "[Scout] READ-ONLY VIOLATION — the analysis pipeline modified source "
-            f"file(s) in {review_path}:\n  " + "\n  ".join(modified)
+            f"file(s) in {review_path}:\n  " + "\n  ".join(sorted(new_modifications))
         )
 
 
@@ -128,9 +136,17 @@ def run(source: str, input_type: str = "repo") -> dict:
 
     The pipeline is READ-ONLY on the target repo — no source files are modified.
     """
+    import os
+    from pathlib import Path
+    # Snapshot dirty files before the pipeline so pre-existing uncommitted changes
+    # are not misattributed to Scout.
+    pre_run_path = str(Path(source).resolve()) if os.path.isdir(source) else ""
+    pre_run = _dirty_source_files(pre_run_path)
+
     graph = build_graph()
     final = graph.invoke(initial_state(source, input_type), {"recursion_limit": 50})
-    _assert_repo_unmodified(final.get("context", {}).get("review_path", ""))
+    review_path = final.get("context", {}).get("review_path", "")
+    _assert_repo_unmodified(review_path, pre_run=pre_run)
     return final.get("final_report", {})
 
 
@@ -157,14 +173,19 @@ def run_standards(
     from .agents.standards import standards_node
     from .standards_skill import save_skill
 
+    # Snapshot dirty files before the pipeline so pre-existing uncommitted changes
+    # in the target repo are not misattributed to Scout.
+    pre_run_path = str(Path(source).resolve()) if os.path.isdir(source) else ""
+    pre_run = _dirty_source_files(pre_run_path)
+
     graph = build_graph()
     final = graph.invoke(initial_state(source, input_type), {"recursion_limit": 50})
 
     # ── Read-only integrity guard ─────────────────────────────────────────────
-    # Assert the pipeline never touched source files (.py, .js, …).
-    # Writing .claude/skills/SKILL.md or .git/hooks/ is explicitly allowed.
+    # Only fails if Scout itself modified source files — pre-existing uncommitted
+    # changes in the repo are excluded via the pre_run snapshot.
     review_path = final.get("context", {}).get("review_path", "")
-    _assert_repo_unmodified(review_path)
+    _assert_repo_unmodified(review_path, pre_run=pre_run)
 
     std_update = standards_node(final)
     standards = std_update.get("standards", {})
