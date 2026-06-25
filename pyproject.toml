@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "scout-review"
+version = "0.1.0"
+description = "Research-aware AI code review: generates SKILL.md, scout-report.md, and a pre-commit hook for any repo"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "mcp[cli]",
+    "langgraph",
+    "langchain",
+    "langchain-openai",
+    "chromadb",
+    "python-dotenv",
+    "pydantic",
+    "ruff",
+    "gitpython",
+]
+
+[project.scripts]
+scout = "backend.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.setuptools.package-data]
+"backend" = ["corpus/*.json"]
+"prompts" = ["*.md"]

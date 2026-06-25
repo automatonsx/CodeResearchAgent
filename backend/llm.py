@@ -16,9 +16,13 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import AzureChatOpenAI
 
-# Load .env from the repo root once on import.
+# Load credentials: local .env first, then ~/.scout/.env as the global fallback.
+# ~/.scout/.env is written by `scout setup` and is shared across all repos.
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 load_dotenv(_ROOT / ".env")
+if not os.environ.get("AZURE_OPENAI_API_KEY"):
+    _scout_env = os.environ.get("SCOUT_ENV") or str(pathlib.Path.home() / ".scout" / ".env")
+    load_dotenv(_scout_env)
 
 
 @lru_cache(maxsize=4)

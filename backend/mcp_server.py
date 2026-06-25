@@ -109,7 +109,7 @@ def review_pr(pr_url: str) -> str:
 
 @mcp.tool()
 def onboard_repo(
-    path_or_url: str,
+    path_or_url: str = ".",
     install_hooks: bool = True,
     install_pre_push: bool = False,
 ) -> str:
@@ -131,7 +131,9 @@ def onboard_repo(
     three paths are written.
 
     Args:
-        path_or_url:      Absolute local path or GitHub URL.
+        path_or_url:      Absolute local path or GitHub URL. Defaults to "." which
+                          means the repository the user currently has open in Claude Code.
+                          Use the workspace root path from context if known.
         install_hooks:    Write the pre-commit hook (default True).
         install_pre_push: Also write the pre-push hook (default False).
     """

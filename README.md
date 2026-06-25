@@ -109,37 +109,36 @@ The review streams agent-by-agent as it runs.
 
 ---
 
-### 3. Claude Code MCP (talk to Scout directly in Claude)
+### 3. Claude Code MCP — Scout in every repo, zero config per repo
 
-Scout ships as an MCP server. Once connected, Claude can call `review_repo`,
-`review_pr`, and `onboard_repo` as tools — no terminal needed.
+Install Scout once. It registers itself globally in Claude Code so it's available
+in **every** repo you open — no per-repo setup.
 
-**Connect it:**
+```bash
+# Install Scout (anywhere on your machine)
+pip install git+https://github.com/<your-username>/scout
 
-1. Open Claude Code in the Scout project folder — it reads `.mcp.json` automatically.
-2. Or add it to your user-level Claude Code config:
-
-```json
-// ~/.claude.json  →  add under "mcpServers"
-{
-  "mcpServers": {
-    "scout": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["-m", "backend.mcp_server"],
-      "cwd": "/absolute/path/to/scout"
-    }
-  }
-}
+# One-time setup: stores API keys globally, registers MCP, builds corpus
+scout setup
 ```
 
-**Then in any Claude Code session:**
+`scout setup` interactively asks for your Azure OpenAI keys, saves them to
+`~/.scout/.env`, and patches `~/.claude.json` so Scout's MCP server starts
+automatically in every Claude Code session.
 
-> *"Scout, review https://github.com/martinmimigames/tiny-music-player"*
-> → Claude calls `review_repo`, returns the full Markdown report
+**Then open any repo in Claude Code and say:**
 
-> *"Onboard this repo: /path/to/myproject"*
-> → Claude calls `onboard_repo`, writes SKILL.md + scout-report.md + hook, returns a summary
+> *"Scout, onboard this repo"*
+> → Claude calls `onboard_repo(".")`, writes three files into your current repo:
+> - `.claude/skills/code-standards/SKILL.md` — auto-loaded by Claude Code from now on
+> - `.claude/scout-report.md` — full findings with citations
+> - `.git/hooks/pre-commit` — blocks CRITICAL issues on every commit
+
+> *"Just review it, don't write anything"*
+> → Claude calls `review_repo(".")`, returns the Markdown report inline
+
+> *"Review this PR"*
+> → Claude calls `review_pr("https://github.com/owner/repo/pull/42")`
 
 **Available MCP tools:**
 
@@ -147,7 +146,7 @@ Scout ships as an MCP server. Once connected, Claude can call `review_repo`,
 |---|---|
 | `review_repo(path_or_url)` | Full review → Markdown report. Writes nothing. |
 | `review_pr(pr_url)` | Review changed lines in a GitHub PR → Markdown report. |
-| `onboard_repo(path_or_url, install_hooks)` | Full pipeline → SKILL.md + scout-report.md + pre-commit hook written into the repo. |
+| `onboard_repo(path_or_url, install_hooks)` | Full pipeline → SKILL.md + scout-report.md + pre-commit hook written into the repo. Defaults to current directory. |
 
 ---
 
