@@ -26,6 +26,14 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 - [ ] **Markdown export in the UI** — a "Download report" button.
 - [ ] Expand `expected.json` for a true precision number; add a second labelled repo.
 
+## 🧠 Knowledge base (in progress)
+- [x] **Self-maintaining architecture KB** — `kb-update.yml` distills each merge to `main`
+      into `ai/knowledge/` (`architecture.json` = truth, `ARCHITECTURE.md` = readable,
+      `CHANGELOG.md` = per-merge log). Seed: `python -m backend.knowledge.update --seed`.
+- [ ] **Consume the KB in reviews** — index it in ChromaDB so the reviewer is repo-aware
+      ("this breaks the pattern in module X").
+- [ ] **External benchmarking** — "what others do better" (cross-repo / industry). Later.
+
 ## 🌭 Later (the bigger vision)
 - [ ] The 5 domain agents (distributed systems, ML, DB, API, scalability).
 - [ ] Real research corpus (arxiv/IEEE) instead of the curated mini-corpus.

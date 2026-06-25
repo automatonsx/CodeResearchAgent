@@ -1,0 +1,80 @@
+name: Knowledge Base Update
+
+# After anything merges to main, distill the diff into the architecture KB.
+# Loop guard: skip when only the KB itself changed (the bot's own commit).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "ai/knowledge/**"
+
+permissions:
+  contents: write   # the bot commits the updated KB back to main
+
+concurrency:
+  group: kb-update
+  cancel-in-progress: false
+
+jobs:
+  update-kb:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need history to diff the merge
+
+      - name: Skip if secrets are not configured
+        id: gate
+        run: |
+          if [ -z "$AZURE_OPENAI_API_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Azure OpenAI secrets not set — skipping KB update."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.configured == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        if: steps.gate.outputs.configured == 'true'
+        run: pip install -r backend/requirements.txt
+
+      - name: Compute the merged diff
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+          fi
+          if [ -n "$BEFORE" ]; then
+            git diff "$BEFORE" "${{ github.sha }}" > merge.diff || true
+          else
+            git diff HEAD~1 HEAD > merge.diff || true
+          fi
+          echo "diff lines: $(wc -l < merge.diff)"
+
+      - name: Update the knowledge base
+        if: steps.gate.outputs.configured == 'true'
+        run: python -m backend.knowledge.update --diff-file merge.diff --source "${{ github.sha }}"
+
+      - name: Commit the updated KB
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          git config user.name "scout-kb-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -f merge.diff
+          git add ai/knowledge
+          if git diff --cached --quiet; then
+            echo "No KB changes to commit."
+          else
+            git commit -m "docs(kb): update architecture knowledge base [skip ci]"
+            git push
+          fi

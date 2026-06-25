@@ -138,4 +138,20 @@ To enable the Scout review job, add these in **Settings → Secrets and variable
 `AZURE_OPENAI_API_VERSION`. (`GITHUB_TOKEN` is provided automatically.) Without them, that
 job skips cleanly and the static checks still run.
 
+## Architecture knowledge base (auto-maintained)
+
+After anything merges to `main`, [.github/workflows/kb-update.yml](.github/workflows/kb-update.yml)
+distills the diff into a living knowledge base under [ai/knowledge/](ai/knowledge/):
+- `architecture.json` — structured source of truth (per-module purpose, files, patterns, decisions)
+- `ARCHITECTURE.md` — human-readable rendering
+- `CHANGELOG.md` — what each merge changed, architecturally
+
+The KB is committed back to the repo (loop-guarded via `paths-ignore`), so it's versioned
+and reviewable. Bootstrap or refresh locally:
+```bash
+python -m backend.knowledge.update --seed                  # from the current repo
+python -m backend.knowledge.update --diff-file merge.diff  # from a merge diff
+```
+Next: index the KB so reviews become repo-aware. See [ROADMAP.md](ROADMAP.md).
+
 See [DESIGN.md](DESIGN.md) for the architecture rationale and the 2-week roadmap.

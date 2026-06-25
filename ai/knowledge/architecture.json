@@ -1,0 +1,201 @@
+{
+  "project": "Scout",
+  "updated": "2026-06-25",
+  "overview": "Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.",
+  "modules": {
+    ".claude/skills": {
+      "purpose": "Contains skill definitions for specific tasks like reviewing repositories or building the best-practices corpus.",
+      "key_files": [
+        ".claude/skills/build-corpus/SKILL.md",
+        ".claude/skills/review-repo/SKILL.md"
+      ],
+      "patterns": [
+        "Task-specific skill definitions"
+      ],
+      "decisions": [
+        "Appears to modularize task-specific logic for extensibility."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    ".github/workflows": {
+      "purpose": "Defines CI workflows for linting, building, and running Scout reviews on pull requests.",
+      "key_files": [
+        ".github/workflows/kb-update.yml",
+        ".github/workflows/pr-checks.yml"
+      ],
+      "patterns": [
+        "GitHub Actions workflows"
+      ],
+      "decisions": [
+        "Includes optional AI-based review steps gated by secret availability."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/agents": {
+      "purpose": "Implements the core agents for context extraction, code quality, security, grounding, critique, and report generation.",
+      "key_files": [
+        "backend/agents/__init__.py",
+        "backend/agents/_generic.py",
+        "backend/agents/_snippet.py",
+        "backend/agents/_structure.py",
+        "backend/agents/code_quality.py",
+        "backend/agents/context.py",
+        "backend/agents/critic.py",
+        "backend/agents/grounding.py",
+        "backend/agents/report.py",
+        "backend/agents/security.py"
+      ],
+      "patterns": [
+        "Agent-based modular design",
+        "Separation of concerns"
+      ],
+      "decisions": [
+        "Agents are designed to handle distinct responsibilities, such as code quality or security.",
+        "Appears to use a graph-based orchestration for agent communication."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/corpus": {
+      "purpose": "Manages the best-practices corpus used for grounding findings.",
+      "key_files": [
+        "backend/corpus/__init__.py",
+        "backend/corpus/best_practices.json",
+        "backend/corpus/build_index.py"
+      ],
+      "patterns": [
+        "Corpus management and indexing"
+      ],
+      "decisions": [
+        "Uses ChromaDB for embedding and querying best-practice principles."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/tools": {
+      "purpose": "Provides utility functions and tool integrations for static analysis and diff parsing.",
+      "key_files": [
+        "backend/tools/__init__.py",
+        "backend/tools/ast_utils.py",
+        "backend/tools/diff_utils.py",
+        "backend/tools/eslint_runner.py",
+        "backend/tools/generic_scan.py",
+        "backend/tools/git_utils.py",
+        "backend/tools/ruff_runner.py",
+        "backend/tools/semgrep_runner.py"
+      ],
+      "patterns": [
+        "Tool-specific wrappers and utilities"
+      ],
+      "decisions": [
+        "Supports Python (ruff, AST) and JavaScript/TypeScript (eslint) deeply.",
+        "Appears to include fallback mechanisms for missing tools (e.g., semgrep)."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend": {
+      "purpose": "Orchestrates the backend, including API endpoints, agent graph execution, and shared state management.",
+      "key_files": [
+        "backend/__init__.py",
+        "backend/graph.py",
+        "backend/knowledge/__init__.py",
+        "backend/knowledge/extractor.py",
+        "backend/knowledge/store.py",
+        "backend/knowledge/update.py",
+        "backend/llm.py",
+        "backend/main.py",
+        "backend/notify/__init__.py",
+        "backend/notify/github_review.py",
+        "backend/report_md.py",
+        "backend/state.py"
+      ],
+      "patterns": [
+        "FastAPI for API",
+        "LangGraph for agent orchestration"
+      ],
+      "decisions": [
+        "Uses LangGraph to manage the multi-agent workflow.",
+        "Appears to integrate Azure OpenAI for LLM-based tasks."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "frontend/src": {
+      "purpose": "Implements the user interface for inputting repositories/diffs and viewing review reports.",
+      "key_files": [
+        "frontend/src/api.js",
+        "frontend/src/App.jsx",
+        "frontend/src/components/GlassBox.jsx",
+        "frontend/src/components/Report.jsx",
+        "frontend/src/main.jsx",
+        "frontend/src/styles.css"
+      ],
+      "patterns": [
+        "React (Vite) for frontend development"
+      ],
+      "decisions": [
+        "Includes a glass-box view to show intermediate agent states.",
+        "Appears to prioritize transparency in report generation."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "evals": {
+      "purpose": "Contains test data and evaluation scripts for validating the system's performance.",
+      "key_files": [
+        "evals/__init__.py",
+        "evals/expected.json",
+        "evals/README.md",
+        "evals/score.py"
+      ],
+      "patterns": [
+        "Planted-issue test set"
+      ],
+      "decisions": [
+        "Appears to focus on precision/recall evaluation."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "data": {
+      "purpose": "Holds sample repositories and diffs for testing and demonstration purposes.",
+      "key_files": [
+        "data/README.md",
+        "data/sample_repo/auth.py",
+        "data/sample_repo/utils.py"
+      ],
+      "patterns": [
+        "Sample data for testing"
+      ],
+      "decisions": [
+        "Provides controlled inputs for consistent testing."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "prompts": {
+      "purpose": "Stores LLM prompt templates for various agents.",
+      "key_files": [
+        "prompts/code_quality.md",
+        "prompts/generic_review.md",
+        "prompts/knowledge_extractor.md",
+        "prompts/report.md",
+        "prompts/security.md"
+      ],
+      "patterns": [
+        "Prompt engineering"
+      ],
+      "decisions": [
+        "Templates appear tailored to specific agent tasks."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "deployment": {
+      "purpose": "Contains deployment-related configurations and documentation.",
+      "key_files": [
+        "deployment/README.md"
+      ],
+      "patterns": [
+        "Deployment documentation"
+      ],
+      "decisions": [
+        "Appears to target Docker-based deployment."
+      ],
+      "last_updated": "2026-06-25"
+    }
+  }
+}
