@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -30,6 +30,11 @@ class ReviewRequest(BaseModel):
     save: bool = False          # also write a Markdown report to reports/
 
 
+class ResearchRequest(BaseModel):
+    question: str
+    source: str = ""
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -43,6 +48,40 @@ def review(req: ReviewRequest) -> dict:
     if req.save:
         out["saved_to"] = save_report(report, req.source)
     return out
+
+
+@app.post("/research")
+def research(req: ResearchRequest) -> dict:
+    """Answer a question about a codebase using the KB + LLM."""
+    from .llm import chat_text
+    from .knowledge.store import load_kb, render_md
+
+    kb_md = ""
+    try:
+        kb = load_kb()
+        if kb:
+            kb_md = render_md(kb)
+    except Exception:
+        pass
+
+    system = (
+        "You are Scout, an expert code research assistant embedded in a code review tool. "
+        "Answer questions about the codebase with specific, actionable insights. "
+        "Cite specific files, modules, or KB sections when relevant. "
+        "Keep responses concise — 2 to 4 short paragraphs."
+    )
+    parts = []
+    if req.source:
+        parts.append(f"Codebase: {req.source}")
+    if kb_md:
+        parts.append(f"Knowledge Base:\n{kb_md[:4000]}")
+    parts.append(f"Question: {req.question}")
+
+    try:
+        answer = chat_text(system, "\n\n".join(parts), temperature=0.4)
+        return {"answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/review/stream")
