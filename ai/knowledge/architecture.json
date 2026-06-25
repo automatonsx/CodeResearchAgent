@@ -1,7 +1,7 @@
 {
   "project": "Scout",
   "updated": "2026-06-25",
-  "overview": "Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. A new Architecture & Design agent has been introduced, which leverages the project's knowledge base to provide higher-level, repo-aware suggestions. The system emphasizes trustworthiness by grounding findings in tool outputs and curated principles, with a focus on reducing hallucinations and false positives.",
+  "overview": "Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. The Architecture & Design agent has been enhanced to include web-research-enriched reviews, expanding its applicability to external repositories. A new Test Coverage agent has been introduced to identify missing tests and suggest actionable test cases. The system now integrates web research across multiple agents, enabling recommendations grounded in both the project's knowledge base and external resources. The report generation process has been updated to include categorized findings and web research sources.",
   "modules": {
     ".claude/skills": {
       "purpose": "Contains skill definitions for specific tasks like reviewing repositories or building the best-practices corpus.",
@@ -32,7 +32,7 @@
       "last_updated": "2026-06-25"
     },
     "backend/agents": {
-      "purpose": "Implements the core agents for context extraction, code quality, security, grounding, critique, architecture/design review, and report generation.",
+      "purpose": "Implements the core agents for context extraction, code quality, security, grounding, critique, architecture/design review, test coverage, and report generation.",
       "key_files": [
         "backend/agents/__init__.py",
         "backend/agents/_generic.py",
@@ -44,15 +44,16 @@
         "backend/agents/grounding.py",
         "backend/agents/report.py",
         "backend/agents/security.py",
-        "backend/agents/architecture.py"
+        "backend/agents/architecture.py",
+        "backend/agents/test_review.py"
       ],
       "patterns": [
         "Agent-based modular design",
         "Separation of concerns"
       ],
       "decisions": [
-        "Agents are designed to handle distinct responsibilities, such as code quality, security, or architecture/design.",
-        "Introduced a new Architecture & Design agent that leverages the knowledge base for repo-aware suggestions.",
+        "Introduced a new Test Coverage agent to identify missing tests and suggest actionable test cases.",
+        "Enhanced the Architecture & Design agent to include web-research-enriched reviews, making it applicable to external repositories.",
         "Appears to use a graph-based orchestration for agent communication."
       ],
       "last_updated": "2026-06-25"
@@ -73,7 +74,7 @@
       "last_updated": "2026-06-25"
     },
     "backend/tools": {
-      "purpose": "Provides utility functions and tool integrations for static analysis and diff parsing.",
+      "purpose": "Provides utility functions and tool integrations for static analysis, diff parsing, and web research.",
       "key_files": [
         "backend/tools/__init__.py",
         "backend/tools/ast_utils.py",
@@ -82,14 +83,16 @@
         "backend/tools/generic_scan.py",
         "backend/tools/git_utils.py",
         "backend/tools/ruff_runner.py",
-        "backend/tools/semgrep_runner.py"
+        "backend/tools/semgrep_runner.py",
+        "backend/tools/web_research.py"
       ],
       "patterns": [
         "Tool-specific wrappers and utilities"
       ],
       "decisions": [
-        "Supports Python (ruff, AST) and JavaScript/TypeScript (eslint) deeply.",
-        "Appears to include fallback mechanisms for missing tools (e.g., semgrep)."
+        "Introduced a new `web_research.py` module to fetch web and research resources for agents.",
+        "Supports integration with Tavily, Semantic Scholar, and ArXiv for web research.",
+        "Appears to detect frameworks and generate targeted queries for web research."
       ],
       "last_updated": "2026-06-25"
     },
@@ -177,13 +180,15 @@
         "prompts/knowledge_extractor.md",
         "prompts/report.md",
         "prompts/security.md",
-        "prompts/architecture.md"
+        "prompts/architecture.md",
+        "prompts/test_review.md"
       ],
       "patterns": [
         "Prompt engineering"
       ],
       "decisions": [
-        "Added a new prompt template (`architecture.md`) tailored for the Architecture & Design agent, emphasizing KB-grounded suggestions."
+        "Updated the Architecture prompt to include web research as an evidence base alongside the KB.",
+        "Added a new prompt template (`test_review.md`) tailored for the Test Coverage agent, emphasizing actionable test suggestions."
       ],
       "last_updated": "2026-06-25"
     },
@@ -209,7 +214,8 @@
         "Graph-based orchestration"
       ],
       "decisions": [
-        "Added the Architecture & Design agent to the graph, positioned after the Security agent and before the Grounding agent."
+        "Added the Test Coverage agent to the graph, positioned after the Architecture agent and before the Grounding agent.",
+        "Updated the Architecture agent's description to reflect its web-research-enriched capabilities."
       ],
       "last_updated": "2026-06-25"
     },
@@ -228,6 +234,48 @@
       "decisions": [
         "Added a retrieval mechanism (`retrieve.py`) to identify relevant KB modules for reviewed files.",
         "Supports direct module lookup for KB-grounded reviews."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/report_md.py": {
+      "purpose": "Generates a final review report in Markdown format, including categorized findings and web research sources.",
+      "key_files": [
+        "backend/report_md.py"
+      ],
+      "patterns": [
+        "Markdown rendering for reports"
+      ],
+      "decisions": [
+        "Added categorized sections for findings (e.g., security, design, testing).",
+        "Included a dedicated section for web research sources in the final report.",
+        "Enhanced finding blocks with severity badges and detailed evidence."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/state.py": {
+      "purpose": "Defines the shared state structure for the multi-agent workflow.",
+      "key_files": [
+        "backend/state.py"
+      ],
+      "patterns": [
+        "Shared state management"
+      ],
+      "decisions": [
+        "Added a `web_research` field to the state to store web research results for reuse across agents."
+      ],
+      "last_updated": "2026-06-25"
+    },
+    "backend/requirements.txt": {
+      "purpose": "Specifies Python dependencies for the backend.",
+      "key_files": [
+        "backend/requirements.txt"
+      ],
+      "patterns": [
+        "Dependency management"
+      ],
+      "decisions": [
+        "Added `tavily-python` as an optional dependency for high-quality web research.",
+        "Documented fallback mechanisms for web research when Tavily is unavailable."
       ],
       "last_updated": "2026-06-25"
     }
