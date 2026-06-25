@@ -28,6 +28,8 @@ def run_semgrep(path: str, config: str = "p/python") -> list[dict]:
             ["semgrep", "--config", config, "--json", "--quiet", path],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=180,
         )
         raw = json.loads(proc.stdout or "{}")

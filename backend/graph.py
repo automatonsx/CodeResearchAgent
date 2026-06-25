@@ -50,7 +50,8 @@ def _dirty_source_files(review_path: str) -> set[str]:
     try:
         result = subprocess.run(
             ["git", "-C", review_path, "diff", "--name-only"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return set()
