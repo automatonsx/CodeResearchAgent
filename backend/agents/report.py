@@ -102,12 +102,27 @@ def report_node(state: ReviewState) -> ReviewState:
         )
     summary += coverage_note
 
+    # Deduplicate web research sources for the report
+    seen_urls: set[str] = set()
+    web_sources: list[dict] = []
+    for r in state.get("web_research", []):
+        url = r.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            web_sources.append({
+                "title": r.get("title", ""),
+                "url": url,
+                "source_type": r.get("source_type", "web"),
+                "query": r.get("query", ""),
+            })
+
     return {
         "final_report": {
             "summary": summary,
             "recommendations": findings,
             "verdict": verdict,
             "score": score,
+            "web_research_sources": web_sources,
             "stats": {
                 "verified": len(findings),
                 "dropped": len(state.get("critique", {}).get("dropped", [])),
@@ -115,6 +130,7 @@ def report_node(state: ReviewState) -> ReviewState:
                 "language": ctx.get("language", "unknown"),
                 "reviewed": reviewed,
                 "skipped": skipped,
+                "web_sources": len(web_sources),
             },
         }
     }
