@@ -139,7 +139,7 @@ def cmd_onboard(args) -> None:
     """Run the full pipeline on a path/URL and write SKILL.md + report + hook."""
     _load_env()
     from backend.graph import run_standards
-    from scripts.install_hooks import _install_hooks as install_hooks_fn, _git_root
+    from backend.hooks.installer import install as install_hooks
 
     target = args.target or "."
     is_github = target.startswith(("https://", "http://", "git@"))
@@ -173,14 +173,9 @@ def cmd_onboard(args) -> None:
         _ok(f"scout-report.md → {report_path}")
 
     if not args.skip_hooks and repo_path:
-        hooks_script = _SCOUT_ROOT / "scripts" / "install_hooks.py"
-        r = subprocess.run(
-            [sys.executable, str(hooks_script), repo_path],
-            capture_output=True, text=True,
-        )
-        if r.returncode == 0:
-            hook_path = str(Path(repo_path) / ".git" / "hooks" / "pre-commit")
-            _ok(f"pre-commit hook → {hook_path}")
+        installed = install_hooks(repo_path)
+        if installed:
+            _ok(f"pre-commit hook → {installed[0]}")
         else:
             _warn("Hook install failed — run: scout install-hooks")
 
@@ -219,12 +214,13 @@ def cmd_review(args) -> None:
 
 def cmd_install_hooks(args) -> None:
     """Install pre-commit (and optionally pre-push) hook into a repo."""
+    from backend.hooks.installer import install as install_hooks
     target = args.target or "."
-    hooks_script = _SCOUT_ROOT / "scripts" / "install_hooks.py"
-    cmd = [sys.executable, str(hooks_script), target]
-    if args.pre_push:
-        cmd.append("--pre-push")
-    subprocess.run(cmd, check=True)
+    installed = install_hooks(target, pre_push=args.pre_push)
+    for path in installed:
+        _ok(f"hook → {path}")
+    if not installed:
+        _err("Could not install hooks — is the target a git repository?")
 
 
 # ── env loader ────────────────────────────────────────────────────────────────

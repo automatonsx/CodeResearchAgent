@@ -13,8 +13,6 @@ Usage (manual):
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -53,19 +51,8 @@ def _sev_summary(findings: list[dict]) -> str:
 
 
 def _install_hooks(repo_path: str, pre_push: bool = False) -> list[str]:
-    hooks_script = _SCOUT_ROOT / "scripts" / "install_hooks.py"
-    if not hooks_script.exists():
-        return []
-    cmd = [sys.executable, str(hooks_script), repo_path]
-    if pre_push:
-        cmd.append("--pre-push")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return []
-    installed = [str(Path(repo_path) / ".git" / "hooks" / "pre-commit")]
-    if pre_push:
-        installed.append(str(Path(repo_path) / ".git" / "hooks" / "pre-push"))
-    return installed
+    from backend.hooks.installer import install as install_hooks
+    return install_hooks(repo_path, pre_push=pre_push)
 
 
 # ── tools ─────────────────────────────────────────────────────────────────────
