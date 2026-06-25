@@ -50,8 +50,20 @@ def get_llm(temperature: float = 0.2) -> AzureChatOpenAI:
 
 
 def load_prompt(name: str) -> str:
-    """Load a prompt template from the top-level ``prompts/`` directory."""
-    return (_ROOT / "prompts" / f"{name}.md").read_text(encoding="utf-8")
+    """Load a prompt template.
+
+    Checks backend/prompts/ first (correct path when pip-installed), then falls
+    back to the root prompts/ directory (correct path when running from source).
+    """
+    _pkg_prompts = pathlib.Path(__file__).resolve().parent / "prompts"
+    _root_prompts = _ROOT / "prompts"
+    for directory in (_pkg_prompts, _root_prompts):
+        candidate = directory / f"{name}.md"
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    raise FileNotFoundError(
+        f"Prompt '{name}.md' not found in {_pkg_prompts} or {_root_prompts}"
+    )
 
 
 def _extract_json(text: str):

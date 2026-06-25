@@ -30,5 +30,6 @@ where = ["."]
 include = ["backend*"]
 
 [tool.setuptools.package-data]
-"backend" = ["corpus/*.json"]
-"prompts" = ["*.md"]
+# prompts/ lives inside the backend package so pip bundles it correctly.
+# corpus/ contains the ChromaDB seed data for the grounding agent.
+"backend" = ["prompts/*.md", "corpus/*.json"]
