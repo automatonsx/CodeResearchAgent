@@ -9,6 +9,10 @@ python-dotenv
 pydantic
 ruff
 gitpython
+tree-sitter
+tree-sitter-language-pack
+# Dependency audit uses the OSV.dev HTTP API (stdlib urllib) for Python + `npm audit`
+# for JS — no extra package required.
 # semgrep is optional and not well-supported on native Windows.
 # The Security agent falls back to ruff's bandit (S) rules + AST checks if absent.
 # Install separately to enable: pip install semgrep

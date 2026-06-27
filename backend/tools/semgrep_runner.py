@@ -1,8 +1,12 @@
-"""semgrep runner — optional security ground-truth.
+"""semgrep runner — multi-language ground-truth (security + code quality).
 
-semgrep has poor native-Windows support, so this is best-effort: if semgrep isn't
-installed/available, ``run_semgrep`` returns [] and the Security agent falls back to
-ruff's bandit (S) rules + AST checks.
+semgrep covers many languages (JS/TS, Java, Go, Ruby, PHP, C#, …) with one tool and
+no per-language toolchain, so it's the cheap, findings-based alternative to sending
+raw file bodies to the LLM (generic_review).
+
+Best-effort: semgrep has poor native-Windows support, so if it isn't installed,
+``run_semgrep`` returns [] and callers fall back (ruff/AST for security; generic_review
+for code quality when explicitly enabled).
 """
 
 from __future__ import annotations
@@ -19,13 +23,30 @@ def semgrep_available() -> bool:
     return shutil.which("semgrep") is not None
 
 
-def run_semgrep(path: str, config: str = "p/python") -> list[dict]:
-    """Run semgrep if available; return normalized findings, else []."""
-    if not semgrep_available() or not Path(path).exists():
+def run_semgrep(target, config: str = "p/python") -> list[dict]:
+    """Run semgrep on a path or a list of files; return normalized findings, else [].
+
+    Args:
+        target: a directory/file path (str) OR a list of file paths.
+        config: semgrep ruleset — e.g. "p/python", "p/javascript", or "auto"
+                (auto-detects language; needs network/login for the registry).
+
+    Findings are type-neutral (no "type"/"category" set) — the calling agent tags
+    them as security or code so the same runner serves both.
+    """
+    if not semgrep_available():
         return []
+
+    if isinstance(target, (list, tuple)):
+        paths = [str(p) for p in target if Path(p).exists()]
+    else:
+        paths = [target] if target and Path(target).exists() else []
+    if not paths:
+        return []
+
     try:
         proc = subprocess.run(
-            ["semgrep", "--config", config, "--json", "--quiet", path],
+            ["semgrep", "--config", config, "--json", "--quiet", *paths],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -42,8 +63,7 @@ def run_semgrep(path: str, config: str = "p/python") -> list[dict]:
             {
                 "tool": "semgrep",
                 "code": r.get("check_id", ""),
-                "type": "security",
-                "file": r.get("path", path),
+                "file": r.get("path", paths[0]),
                 "line": (r.get("start") or {}).get("line", 0),
                 "message": (r.get("extra") or {}).get("message", ""),
             }

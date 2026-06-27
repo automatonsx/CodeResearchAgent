@@ -64,9 +64,9 @@ def critic_node(state: ReviewState) -> ReviewState:
         file, line = f.get("file", ""), f.get("line", 0)
         ftype = f.get("type")
 
-        # KB-grounded architecture/design findings are file-level (no precise line).
-        # Verify the file exists, dedupe by file+issue, and keep — they are advisory.
-        if ftype in ("architecture", "design"):
+        # Architecture/design and dependency findings are file-level (no precise
+        # line). Verify the file exists, dedupe by file+issue, and keep.
+        if ftype in ("architecture", "design", "dependency"):
             akey = (file, ftype, f.get("issue", "")[:50])
             if not _file_exists(file):
                 dropped.append({"issue": f.get("issue", ""), "reason": "file not found"})
@@ -113,8 +113,8 @@ def critic_node(state: ReviewState) -> ReviewState:
     if changed:
         scoped = []
         for f in kept:
-            # File-level KB suggestions aren't line-scoped — always keep them.
-            if f.get("type") in ("architecture", "design"):
+            # File-level findings aren't line-scoped — always keep them.
+            if f.get("type") in ("architecture", "design", "dependency"):
                 scoped.append(f)
                 continue
             cl = changed.get(f.get("file", ""), [])

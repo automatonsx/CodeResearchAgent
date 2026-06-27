@@ -1,3 +1,4 @@
+
 """Multi-factor confidence scoring for Scout findings and analysis quality.
 
 Per-finding confidence replaces the flat 0.5 / 1.0 values with a weighted score

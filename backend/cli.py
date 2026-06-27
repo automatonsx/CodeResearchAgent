@@ -243,6 +243,14 @@ def _load_env() -> None:
 # ── entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # Reports contain Unicode (emoji, arrows). Windows' default console codec
+    # (cp1252) can't encode those and crashes on print/redirect — force UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser(
         prog="scout",
         description="Scout — research-aware AI code review",

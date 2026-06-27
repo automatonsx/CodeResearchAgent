@@ -2,9 +2,13 @@
   "name": "scout-eslint",
   "private": true,
   "type": "module",
-  "description": "Isolated eslint environment Scout uses to lint JS/TS as ground truth.",
+  "description": "Isolated eslint environment Scout uses to lint JS/TS/React/Vue as ground truth.",
   "dependencies": {
     "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0"
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-vue": "^9.30.0",
+    "vue-eslint-parser": "^9.4.0"
   }
 }

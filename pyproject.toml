@@ -20,6 +20,8 @@ dependencies = [
     "pydantic",
     "ruff",
     "gitpython",
+    "tree-sitter",
+    "tree-sitter-language-pack",
 ]
 
 [project.scripts]

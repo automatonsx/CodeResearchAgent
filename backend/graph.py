@@ -16,6 +16,7 @@ from .agents import (
     context_node,
     code_quality_node,
     security_node,
+    dependency_node,
     architecture_node,
     test_review_node,
     grounding_node,
@@ -105,6 +106,7 @@ def build_graph():
     g.add_node("context",      _track("context",      context_node))
     g.add_node("code_quality", _track("code_quality", code_quality_node))
     g.add_node("security",     _track("security",     security_node))
+    g.add_node("dependency",   _track("dependency",   dependency_node))
     g.add_node("architecture", _track("architecture", architecture_node))
     g.add_node("test_review",  _track("test_review",  test_review_node))
     g.add_node("grounding",    _track("grounding",    grounding_node))
@@ -115,7 +117,8 @@ def build_graph():
     g.add_edge(START, "context")
     g.add_edge("context", "code_quality")
     g.add_edge("code_quality", "security")
-    g.add_edge("security", "architecture")
+    g.add_edge("security", "dependency")
+    g.add_edge("dependency", "architecture")
     g.add_edge("architecture", "test_review")
     g.add_edge("test_review", "grounding")
     g.add_edge("grounding", "critic")

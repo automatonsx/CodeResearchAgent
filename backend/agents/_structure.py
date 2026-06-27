@@ -11,6 +11,7 @@ import json
 
 from ..llm import chat_json, load_prompt
 from ._snippet import read_snippet
+from ._batch import batch_by_size, map_batches
 from ..corpus.rule_map import citation_for
 
 
@@ -25,7 +26,11 @@ def structure_findings(
     if not raw:
         return []
 
+    # Build the LLM payload (enriched) and a SEPARATE (file,line)->snippet index.
+    # The snippet is NOT duplicated into the payload — sending it once halves the
+    # snippet tokens; the index keeps it available for downstream reattachment.
     enriched = []
+    snippet_index: dict[tuple[str, int], str] = {}
     for r in raw:
         snippet = read_snippet(r.get("file", ""), r.get("line", 0))
         enriched.append(
@@ -37,16 +42,15 @@ def structure_findings(
                 "line": r.get("line"),
                 "message": r.get("message"),
                 "snippet": snippet,
-                # Preserved so downstream nodes (standards_node) can quote the actual bad code
-                "_raw_snippet": snippet,
             }
         )
+        if snippet:
+            snippet_index[(r.get("file") or "", r.get("line") or 0)] = snippet
 
-    prompt = load_prompt(prompt_name) + "\n\nTOOL FINDINGS (ground truth):\n" + json.dumps(
-        enriched, indent=2
-    )
+    prompt_template = load_prompt(prompt_name)
+    critic_suffix = ""
     if critique and (critique.get("dropped") or critique.get("low_confidence")):
-        prompt += (
+        critic_suffix = (
             "\n\nCRITIC FEEDBACK FROM THE LAST PASS — do NOT re-emit dropped items; "
             "strengthen or remove low-confidence ones:\n" + json.dumps(
                 {"dropped": critique.get("dropped", []),
@@ -55,26 +59,30 @@ def structure_findings(
                 indent=2,
             )
         )
-    try:
-        data = chat_json(f"You are a precise {category} code reviewer.", prompt)
-        findings = data.get("recommendations") or data.get("findings") or []
-    except Exception as exc:
-        import sys
-        print(
-            f"[Scout] structure_findings({prompt_name!r}) failed — returning empty list. "
-            f"Error: {exc}",
-            file=sys.stderr,
+
+    def _structure_batch(batch: list[dict]) -> list[dict]:
+        # Let LLM/parse errors propagate — map_batches bisects and retries a failing
+        # batch, so a bad item costs at most itself, never the whole batch.
+        prompt = (
+            prompt_template
+            + "\n\nTOOL FINDINGS (ground truth):\n"
+            + json.dumps(batch, indent=2)
+            + critic_suffix
         )
-        findings = []
+        data = chat_json(f"You are a precise {category} code reviewer.", prompt)
+        return data.get("recommendations") or data.get("findings") or []
+
+    # Findings expand on output (the LLM writes issue/recommendation/example per
+    # item), so cap by COUNT — ~8 findings fit comfortably under the 4k output-token
+    # limit, so replies never truncate (truncation is what triggered the retry/split
+    # cascade). Fewer, fuller batches = fewer requests.
+    batches = batch_by_size(
+        enriched, lambda e: len(json.dumps(e)), max_chars=12000, max_items=8
+    )
+    findings = map_batches(batches, _structure_batch, label=f"structure:{prompt_name}")
 
     # Backfill required fields and tag the source category.
     valid_codes = {r.get("code") for r in raw}
-    # Build a (file, line) → snippet index so we can reattach the real bad-code snippet.
-    snippet_index: dict[tuple[str, int], str] = {
-        (e["file"] or "", e["line"] or 0): e["_raw_snippet"]
-        for e in enriched
-        if e.get("_raw_snippet")
-    }
     out = []
     for f in findings:
         f.setdefault("type", category)

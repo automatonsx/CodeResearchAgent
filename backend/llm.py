@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import re
+import sys
 import time
 from functools import lru_cache
 
@@ -26,9 +27,26 @@ if not os.environ.get("AZURE_OPENAI_API_KEY"):
     load_dotenv(_scout_env)
 
 
-@lru_cache(maxsize=4)
-def get_llm(temperature: float = 0.2) -> AzureChatOpenAI:
+# Cap on the model's *output* tokens. Without this, the default is small and long
+# JSON replies (many findings in one batch) get truncated mid-array → JSON parse
+# errors and dropped findings. gpt-4o supports up to 16384 output tokens.
+# Azure reserves this full amount against the TPM budget on every call, so an
+# inflated value causes 429s under concurrency. Batches are small (≤6 findings ≈
+# ~3k output tokens), so 6000 is ample headroom without starving the rate limiter.
+_MAX_OUTPUT_TOKENS = int(os.environ.get("SCOUT_MAX_OUTPUT_TOKENS", "4000"))
+
+
+@lru_cache(maxsize=8)
+def get_llm(
+    temperature: float = 0.2,
+    max_tokens: int = _MAX_OUTPUT_TOKENS,
+    json_mode: bool = False,
+) -> AzureChatOpenAI:
     """Return a cached Azure OpenAI chat client.
+
+    json_mode=True forces the API to return syntactically valid JSON
+    (response_format=json_object) — eliminates malformed-JSON parse errors when
+    the model writes code examples containing quotes/newlines.
 
     Required env vars:
       AZURE_OPENAI_API_KEY
@@ -41,12 +59,15 @@ def get_llm(temperature: float = 0.2) -> AzureChatOpenAI:
         or os.environ.get("AZURE_OPENAI_MODEL")
         or "gpt-4o"
     )
+    model_kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
     return AzureChatOpenAI(
         azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
         api_key=os.environ["AZURE_OPENAI_API_KEY"],
         azure_deployment=deployment,
         api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-08-01-preview"),
         temperature=temperature,
+        max_tokens=max_tokens,
+        model_kwargs=model_kwargs,
     )
 
 
@@ -88,12 +109,12 @@ def _is_rate_limit(exc: Exception) -> bool:
     return "429" in msg or "rate_limit" in msg or "too_many_requests" in msg
 
 
-def _invoke_with_retry(messages, temperature: float, max_retries: int = 4):
+def _invoke_with_retry(messages, temperature: float, max_retries: int = 4, json_mode: bool = False):
     """Invoke the LLM with exponential back-off on 429 rate-limit errors.
 
     Waits 15 s → 30 s → 60 s → 120 s before each retry, then re-raises.
     """
-    llm = get_llm(temperature)
+    llm = get_llm(temperature, json_mode=json_mode)
     for attempt in range(max_retries):
         try:
             return llm.invoke(messages)
@@ -103,6 +124,7 @@ def _invoke_with_retry(messages, temperature: float, max_retries: int = 4):
                 print(
                     f"  [Scout] Rate limit hit — waiting {wait}s before retry "
                     f"({attempt + 1}/{max_retries - 1}) …",
+                    file=sys.stderr,
                     flush=True,
                 )
                 time.sleep(wait)
@@ -111,12 +133,28 @@ def _invoke_with_retry(messages, temperature: float, max_retries: int = 4):
 
 
 def chat_json(system: str, user: str, temperature: float = 0.2):
-    """Call the LLM and parse its reply as JSON. Retries on 429 rate-limit errors."""
+    """Call the LLM and parse its reply as JSON.
+
+    Uses the API's JSON mode so the reply is guaranteed syntactically valid, and
+    retries 429 rate limits. As a final safety net, a parse failure triggers one
+    plain (non-JSON-mode) retry before giving up.
+    """
+    # JSON mode requires the word "json" to appear in the prompt — guarantee it.
+    sys_msg = system if "json" in system.lower() else system + " Respond in JSON."
     resp = _invoke_with_retry(
-        [SystemMessage(content=system), HumanMessage(content=user)],
+        [SystemMessage(content=sys_msg), HumanMessage(content=user)],
         temperature,
+        json_mode=True,
     )
-    return _extract_json(resp.content)
+    try:
+        return _extract_json(resp.content)
+    except json.JSONDecodeError:
+        # One fallback attempt without JSON mode (rarely needed).
+        resp = _invoke_with_retry(
+            [SystemMessage(content=sys_msg), HumanMessage(content=user)],
+            temperature,
+        )
+        return _extract_json(resp.content)
 
 
 def chat_text(system: str, user: str, temperature: float = 0.3) -> str:

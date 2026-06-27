@@ -3,6 +3,7 @@
 from .context import context_node
 from .code_quality import code_quality_node
 from .security import security_node
+from .dependency import dependency_node
 from .architecture import architecture_node
 from .test_review import test_review_node
 from .grounding import grounding_node
@@ -13,6 +14,7 @@ __all__ = [
     "context_node",
     "code_quality_node",
     "security_node",
+    "dependency_node",
     "architecture_node",
     "test_review_node",
     "grounding_node",

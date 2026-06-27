@@ -16,6 +16,7 @@ _VERDICT = {
 
 _CATEGORY_META = {
     "security":     ("🔒", "Security"),
+    "dependency":   ("📦", "Dependencies"),
     "code":         ("💻", "Code Quality"),
     "design":       ("🏗️",  "Architecture & Design"),
     "testing":      ("🧪", "Test Coverage"),
@@ -155,7 +156,7 @@ def report_to_markdown(report: dict, source: str = "") -> str:
         cat = f.get("category", "code")
         by_cat.setdefault(cat, []).append(f)
 
-    cat_order = ["security", "design", "testing", "code"]
+    cat_order = ["security", "dependency", "design", "testing", "code"]
     for cat in cat_order:
         findings = by_cat.get(cat, [])
         if not findings:

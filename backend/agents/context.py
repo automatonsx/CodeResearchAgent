@@ -8,6 +8,7 @@ Handles both inputs:
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -24,7 +25,9 @@ _CODE_EXT = {
 }
 _SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", ".vite", "vendor"}
 _SKIP_SUBSTR = (".min.", ".bundle.")
-_MAX_FILES = 40  # soft cap on files actually analyzed, so large repos stay demo-fast
+# Soft cap on files analyzed. Cost/time scale with this directly, so the default is
+# kept moderate; raise via SCOUT_MAX_FILES for deeper (more expensive) reviews.
+_MAX_FILES = int(os.environ.get("SCOUT_MAX_FILES", "80"))
 
 
 _LANG_BY_EXT = {".py": "python", ".js": "js", ".jsx": "js", ".mjs": "js", ".cjs": "js",

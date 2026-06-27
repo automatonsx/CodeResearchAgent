@@ -1,11 +1,12 @@
 """Architecture & Design agent — KB + best_practices corpus grounded review.
 
 Flow:
-  1. Read file content (capped per file).
+  1. Read every reviewed file (each bounded to a per-file ceiling).
   2. Load project KB for the reviewed files.
   3. Query ChromaDB (best_practices.json) for architecture best practices relevant
      to the detected language/patterns — no web search.
-  4. Pass file content + KB + corpus practices to the LLM.
+  4. Split files into size-bounded batches; pass each batch + KB + corpus practices
+     to the LLM concurrently, then merge findings.
   5. Validate findings against actually reviewed files.
 """
 
@@ -19,9 +20,12 @@ from ..state import ReviewState
 from ..llm import chat_json, load_prompt
 from ..knowledge.retrieve import relevant_kb
 from ..corpus.build_index import retrieve as corpus_retrieve
+from ..tools import code_skeleton
+from ._batch import batch_by_size, map_batches
 
-_MAX_FILES = 12
-_MAX_CHARS = 2500
+# Fallback when a file's language isn't supported by the skeleton extractor: send a
+# small head (imports/declarations usually sit at the top), not the whole body.
+_HEAD_CHARS = 1500
 _MAX_CORPUS_HITS = 8
 
 
@@ -60,7 +64,7 @@ def architecture_node(state: ReviewState) -> ReviewState:
     if not files or not review_path:
         return {}
 
-    # ── 1. Build rel-path → abs-path mapping ─────────────────────────────
+    # ── 1. Build rel-path → abs-path mapping (ALL reviewed files) ─────────
     rel_to_abs: dict[str, str] = {}
     for f in files:
         try:
@@ -69,26 +73,23 @@ def architecture_node(state: ReviewState) -> ReviewState:
             rel = os.path.basename(f)
         rel_to_abs[rel] = f
 
-    # ── 2. Read file content (capped) ────────────────────────────────────
+    # ── 2. Build a compact structural skeleton per file (NOT raw bodies) ──
+    # Any supported language → skeleton (imports + class/function names + LOC) via
+    # ast (Python) or tree-sitter (JS/TS/Java/Go/…). Unsupported → small text head.
+    # This carries the structure an architect needs at a fraction of the tokens.
     reviewed: list[dict] = []
-    for rel, absf in list(rel_to_abs.items())[:_MAX_FILES]:
+    for rel, absf in rel_to_abs.items():
+        skel = code_skeleton(absf)
+        if skel is not None:
+            reviewed.append({"file": rel, "skeleton": skel})
+            continue
         try:
-            raw = Path(absf).read_text(encoding="utf-8", errors="ignore")
-            truncated = len(raw) > _MAX_CHARS
-            content = raw[:_MAX_CHARS]
+            head = Path(absf).read_text(encoding="utf-8", errors="ignore")[:_HEAD_CHARS]
         except Exception:
-            content = ""
-            truncated = False
-        entry: dict = {"file": rel, "content": content}
-        if truncated:
-            import sys
-            print(
-                f"[Scout/architecture] {rel} truncated to {_MAX_CHARS} chars "
-                f"(full size: {len(raw)} chars) — review may be incomplete.",
-                file=sys.stderr,
-            )
-            entry["truncated"] = True
-        reviewed.append(entry)
+            continue
+        reviewed.append({"file": rel, "head": head})
+    if not reviewed:
+        return {}
 
     # ── 3. Project KB (optional) ─────────────────────────────────────────
     kb = relevant_kb(list(rel_to_abs.keys()))
@@ -117,24 +118,30 @@ def architecture_node(state: ReviewState) -> ReviewState:
                 "issue": issue_text,
             })
 
-    # ── 6. Build LLM payload ──────────────────────────────────────────────
-    payload: dict = {
-        "reviewed_files": reviewed,
-        "corpus_best_practices": corpus_hits,
-        "already_reported_issues": already_reported,
-    }
-    if has_kb:
-        payload["overview"] = kb.get("overview", "")
-        payload["kb_modules"] = kb["modules"]
+    # ── 6. Review each batch of files concurrently ───────────────────────
+    prompt_template = load_prompt("architecture")
 
-    prompt = load_prompt("architecture") + "\n\nINPUT:\n" + json.dumps(
-        payload, indent=2, ensure_ascii=False
-    )
-    try:
+    def _review_batch(batch: list[dict]) -> list[dict]:
+        payload: dict = {
+            "reviewed_files": batch,
+            "corpus_best_practices": corpus_hits,
+            "already_reported_issues": already_reported,
+        }
+        if has_kb:
+            payload["overview"] = kb.get("overview", "")
+            payload["kb_modules"] = kb["modules"]
+        prompt = prompt_template + "\n\nINPUT:\n" + json.dumps(
+            payload, indent=2, ensure_ascii=False
+        )
+        # Let errors propagate — map_batches bisects and retries a failing batch.
         data = chat_json("You are a senior software architect.", prompt)
-        recs = data.get("recommendations") or []
-    except Exception:
-        recs = []
+        return data.get("recommendations") or []
+
+    # Skeletons are tiny, so pack as many files as fit per call (size-bound, not the
+    # small default item cap) → ~1 request for the whole repo, and the LLM sees the
+    # cross-file structure it needs. Split only kicks in if a packed call overflows.
+    batches = batch_by_size(reviewed, lambda e: len(json.dumps(e)), max_items=200)
+    recs = map_batches(batches, _review_batch, label="architecture")
 
     # ── 7. Validate and annotate findings ────────────────────────────────
     valid_rel = set(rel_to_abs)

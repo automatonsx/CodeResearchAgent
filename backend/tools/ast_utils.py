@@ -59,6 +59,81 @@ def _resolve_files(target) -> list[Path]:
     return [p] if p.is_file() and p.suffix == ".py" else list(p.rglob("*.py"))
 
 
+_DOC_MAX_CHARS = 120
+
+
+def _doc_summary(node) -> str:
+    """Return the first line of a node's docstring, truncated. '' if none.
+
+    The docstring is the author's stated intent — a fact the architecture LLM can
+    reason over instead of guessing behavior from the function name. We keep only
+    the first line so token cost stays tiny.
+    """
+    try:
+        doc = ast.get_docstring(node)
+    except Exception:
+        return ""
+    if not doc:
+        return ""
+    first = doc.strip().splitlines()[0].strip()
+    return first[:_DOC_MAX_CHARS]
+
+
+def python_skeleton(file: str) -> dict | None:
+    """Return a compact structural skeleton of a Python file — imports + top-level
+    class/function signatures + line count — for the architecture agent.
+
+    This replaces sending raw file bodies to the LLM: it carries the *structure*
+    an architect needs (modules, boundaries, public surface) at a tiny fraction of
+    the tokens. Returns None if the file cannot be parsed.
+    """
+    try:
+        src = Path(file).read_text(encoding="utf-8", errors="ignore").replace("\x00", "")
+        tree = ast.parse(src)
+    except Exception:
+        return None
+
+    imports: list[str] = []
+    classes: list[dict] = []
+    functions: list[dict] = []
+
+    for node in tree.body:  # top-level declarations only
+        if isinstance(node, ast.Import):
+            imports.extend(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            mod = node.module or ""
+            imports.extend(f"{mod}.{a.name}" if mod else a.name for a in node.names)
+        elif isinstance(node, ast.ClassDef):
+            methods = [
+                m.name for m in node.body
+                if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ]
+            entry = {"name": node.name, "methods": methods, "line": node.lineno}
+            doc = _doc_summary(node)
+            if doc:
+                entry["doc"] = doc
+            classes.append(entry)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            entry = {"name": node.name, "args": [a.arg for a in node.args.args],
+                     "line": node.lineno}
+            doc = _doc_summary(node)
+            if doc:
+                entry["doc"] = doc
+            functions.append(entry)
+
+    skeleton = {
+        "imports": imports[:40],
+        "classes": classes,
+        "functions": functions,
+        "loc": len(src.splitlines()),
+    }
+    # Module docstring = the file's own statement of purpose (gold for architecture).
+    module_doc = _doc_summary(tree)
+    if module_doc:
+        skeleton["module_doc"] = module_doc
+    return skeleton
+
+
 def ast_findings(target) -> list[dict]:
     """Return AST findings for the given file/dir/list of Python files.
 

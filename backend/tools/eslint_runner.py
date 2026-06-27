@@ -19,7 +19,7 @@ from pathlib import Path
 
 _ENV = Path(__file__).resolve().parent / "eslint_env"
 _CONFIG = _ENV / "eslint.config.mjs"
-_JS_EXT = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
+_JS_EXT = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue"}
 _MAX_BYTES = 200_000  # skip large/minified files
 _SECURITY_RULES = {"no-eval", "no-implied-eval", "no-new-func"}
 

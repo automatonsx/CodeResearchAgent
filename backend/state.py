@@ -23,7 +23,11 @@ class ReviewState(TypedDict, total=False):
     standards: dict            # extracted coding standards (from standards_node)
 
 
-MAX_ITERATIONS = 2
+# The Critic re-runs the whole pipeline on each iteration, so this is a direct
+# multiplier on both cost and wall-clock time. 1 = at most one corrective re-pass.
+# Override with SCOUT_MAX_ITERATIONS.
+import os as _os
+MAX_ITERATIONS = int(_os.environ.get("SCOUT_MAX_ITERATIONS", "0"))
 
 # Severity ordering for prioritization / scoring.
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2, "suggestion": 3}

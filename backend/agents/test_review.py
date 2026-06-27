@@ -16,9 +16,12 @@ from pathlib import Path
 from ..state import ReviewState
 from ..llm import chat_json, load_prompt
 from ..corpus.build_index import retrieve as corpus_retrieve
+from ._batch import batch_by_size, map_batches
 
-_MAX_SOURCE_FILES = 12
-_MAX_CHARS = 2000
+# test_review already extracts the function/class list via AST (see _extract_functions),
+# which is what it needs to spot untested code. The file body is only light context, so
+# we send a small head — not the whole file. This is the bulk of test_review's token cost.
+_PER_FILE_CHARS = 1500
 _MAX_CORPUS_HITS = 6
 
 
@@ -148,9 +151,9 @@ def test_review_node(state: ReviewState) -> ReviewState:
         rel_to_abs[rel] = f
 
     source_content: list[dict] = []
-    for rel, absf in list(rel_to_abs.items())[:_MAX_SOURCE_FILES]:
+    for rel, absf in rel_to_abs.items():
         try:
-            content = Path(absf).read_text(encoding="utf-8", errors="ignore")[:_MAX_CHARS]
+            content = Path(absf).read_text(encoding="utf-8", errors="ignore")[:_PER_FILE_CHARS]
         except Exception:
             content = ""
         funcs = _extract_functions(absf, language)
@@ -165,23 +168,29 @@ def test_review_node(state: ReviewState) -> ReviewState:
     corpus_hits = _corpus_for_testing(language)
     corpus_ids = {h["practice_id"] for h in corpus_hits}
 
-    payload = {
-        "language": language,
-        "source_files": source_content,
-        "existing_tests": existing_tests,
-        "has_any_tests": bool(test_files),
-        "corpus_best_practices": corpus_hits,
-    }
-    prompt = (
-        load_prompt("test_review")
-        + "\n\nINPUT:\n"
-        + json.dumps(payload, indent=2, ensure_ascii=False)
-    )
-    try:
+    prompt_template = load_prompt("test_review")
+
+    def _review_batch(batch: list[dict]) -> list[dict]:
+        payload = {
+            "language": language,
+            "source_files": batch,
+            "existing_tests": existing_tests,
+            "has_any_tests": bool(test_files),
+            "corpus_best_practices": corpus_hits,
+        }
+        prompt = (
+            prompt_template
+            + "\n\nINPUT:\n"
+            + json.dumps(payload, indent=2, ensure_ascii=False)
+        )
+        # Let errors propagate — map_batches bisects and retries a failing batch.
         data = chat_json("You are a senior test engineer.", prompt)
-        recs = data.get("test_recommendations") or []
-    except Exception:
-        recs = []
+        return data.get("test_recommendations") or []
+
+    # Pack many files per call (size-bound, not the small default item cap) → few
+    # requests. Split only kicks in if a packed call overflows.
+    batches = batch_by_size(source_content, lambda e: len(e["content"]), max_items=200)
+    recs = map_batches(batches, _review_batch, label="test_review")
 
     valid_rel = set(rel_to_abs)
     findings: list[dict] = []
