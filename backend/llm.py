@@ -10,15 +10,20 @@ import json
 import os
 import pathlib
 import re
+import time
 from functools import lru_cache
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import AzureChatOpenAI
 
-# Load .env from the repo root once on import.
+# Load credentials: local .env first, then ~/.scout/.env as the global fallback.
+# ~/.scout/.env is written by `scout setup` and is shared across all repos.
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 load_dotenv(_ROOT / ".env")
+if not os.environ.get("AZURE_OPENAI_API_KEY"):
+    _scout_env = os.environ.get("SCOUT_ENV") or str(pathlib.Path.home() / ".scout" / ".env")
+    load_dotenv(_scout_env)
 
 
 @lru_cache(maxsize=4)
@@ -46,8 +51,20 @@ def get_llm(temperature: float = 0.2) -> AzureChatOpenAI:
 
 
 def load_prompt(name: str) -> str:
-    """Load a prompt template from the top-level ``prompts/`` directory."""
-    return (_ROOT / "prompts" / f"{name}.md").read_text(encoding="utf-8")
+    """Load a prompt template.
+
+    Checks backend/prompts/ first (correct path when pip-installed), then falls
+    back to the root prompts/ directory (correct path when running from source).
+    """
+    _pkg_prompts = pathlib.Path(__file__).resolve().parent / "prompts"
+    _root_prompts = _ROOT / "prompts"
+    for directory in (_pkg_prompts, _root_prompts):
+        candidate = directory / f"{name}.md"
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    raise FileNotFoundError(
+        f"Prompt '{name}.md' not found in {_pkg_prompts} or {_root_prompts}"
+    )
 
 
 def _extract_json(text: str):
@@ -66,15 +83,46 @@ def _extract_json(text: str):
         raise
 
 
-def chat_json(system: str, user: str, temperature: float = 0.2):
-    """Call the LLM and parse its reply as JSON. Returns the parsed object."""
+def _is_rate_limit(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "rate_limit" in msg or "too_many_requests" in msg
+
+
+def _invoke_with_retry(messages, temperature: float, max_retries: int = 4):
+    """Invoke the LLM with exponential back-off on 429 rate-limit errors.
+
+    Waits 15 s → 30 s → 60 s → 120 s before each retry, then re-raises.
+    """
     llm = get_llm(temperature)
-    resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+    for attempt in range(max_retries):
+        try:
+            return llm.invoke(messages)
+        except Exception as exc:
+            if _is_rate_limit(exc) and attempt < max_retries - 1:
+                wait = 15 * (2 ** attempt)   # 15, 30, 60, 120 seconds
+                print(
+                    f"  [Scout] Rate limit hit — waiting {wait}s before retry "
+                    f"({attempt + 1}/{max_retries - 1}) …",
+                    flush=True,
+                )
+                time.sleep(wait)
+            else:
+                raise
+
+
+def chat_json(system: str, user: str, temperature: float = 0.2):
+    """Call the LLM and parse its reply as JSON. Retries on 429 rate-limit errors."""
+    resp = _invoke_with_retry(
+        [SystemMessage(content=system), HumanMessage(content=user)],
+        temperature,
+    )
     return _extract_json(resp.content)
 
 
 def chat_text(system: str, user: str, temperature: float = 0.3) -> str:
-    """Call the LLM and return the raw text reply."""
-    llm = get_llm(temperature)
-    resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+    """Call the LLM and return the raw text reply. Retries on 429 rate-limit errors."""
+    resp = _invoke_with_retry(
+        [SystemMessage(content=system), HumanMessage(content=user)],
+        temperature,
+    )
     return resp.content.strip()

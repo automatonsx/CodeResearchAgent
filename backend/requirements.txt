@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+mcp[cli]
 langgraph
 langchain
 langchain-openai

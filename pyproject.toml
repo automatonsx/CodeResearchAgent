@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scout-review"
+version = "0.1.0"
+description = "Research-aware AI code review: generates SKILL.md, scout-report.md, and a pre-commit hook for any repo"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "mcp[cli]",
+    "langgraph",
+    "langchain",
+    "langchain-openai",
+    "chromadb",
+    "python-dotenv",
+    "pydantic",
+    "ruff",
+    "gitpython",
+]
+
+[project.scripts]
+scout = "backend.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.setuptools.package-data]
+# prompts/ lives inside the backend package so pip bundles it correctly.
+# corpus/ contains the ChromaDB seed data for the grounding agent.
+"backend" = ["prompts/*.md", "corpus/*.json"]

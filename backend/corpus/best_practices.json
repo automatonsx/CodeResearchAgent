@@ -1,34 +1,119 @@
 [
   {
     "id": "bp-secrets",
+    "category": "security",
     "title": "Never hardcode secrets",
     "principle": "Credentials, API keys, and passwords must never be committed in source. Load them from environment variables or a secrets manager so they can be rotated without code changes.",
     "source": "OWASP Secrets Management Cheat Sheet",
-    "tags": ["security", "secrets", "S105", "S106", "S107"]
+    "tags": ["security", "secrets", "S105", "S106", "S107", "SCAN-SECRET"]
   },
   {
     "id": "bp-sql-injection",
+    "category": "security",
     "title": "Use parameterized queries",
-    "principle": "Build SQL with bound parameters, never string concatenation or f-strings on user input. Parameterization is the primary defense against SQL injection.",
+    "principle": "Build SQL with bound parameters, never string concatenation or f-strings on user input. Parameterization is the primary defense against SQL injection (OWASP A03).",
     "source": "OWASP Top 10 A03:2021 — Injection",
     "tags": ["security", "injection", "sql", "S608"]
   },
   {
     "id": "bp-shell-injection",
+    "category": "security",
     "title": "Avoid shell=True with untrusted input",
-    "principle": "Passing shell=True to subprocess invites command injection. Prefer passing an argument list and shell=False so arguments are not re-parsed by a shell.",
+    "principle": "Passing shell=True to subprocess invites command injection. Prefer passing an argument list so arguments are not re-parsed by a shell.",
     "source": "Python docs — subprocess security considerations",
     "tags": ["security", "injection", "subprocess", "S602", "S605"]
   },
   {
     "id": "bp-eval",
+    "category": "security",
     "title": "Do not use eval/exec on dynamic input",
-    "principle": "eval and exec execute arbitrary code. Use ast.literal_eval for data, or an explicit dispatch table for behavior.",
+    "principle": "eval and exec execute arbitrary code. Use ast.literal_eval for data literals, or an explicit dispatch table for behavior.",
     "source": "Python docs — ast.literal_eval; Bandit B307",
-    "tags": ["security", "eval", "S307"]
+    "tags": ["security", "eval", "S307", "SCAN-EVAL"]
+  },
+  {
+    "id": "bp-input-validation",
+    "category": "security",
+    "title": "Validate and sanitize external input",
+    "principle": "Treat all external input as untrusted. Validate type, range, and format at the system boundary (HTTP request, file, env var) before any internal use.",
+    "source": "OWASP Input Validation Cheat Sheet",
+    "tags": ["security", "validation", "robustness"]
+  },
+  {
+    "id": "bp-tls-verify",
+    "category": "security",
+    "title": "Never disable TLS certificate verification",
+    "principle": "Setting verify=False in requests or ssl_check=False silently exposes all HTTPS traffic to man-in-the-middle attacks. Fix certificate issues at the infra level.",
+    "source": "OWASP Transport Layer Security Cheat Sheet; Bandit B501",
+    "tags": ["security", "tls", "https", "S501"]
+  },
+  {
+    "id": "bp-weak-hash",
+    "category": "security",
+    "title": "Never use MD5 or SHA-1 for security purposes",
+    "principle": "MD5 and SHA-1 are cryptographically broken. Use SHA-256 or higher for integrity checks and bcrypt/argon2 for password hashing.",
+    "source": "NIST SP 800-131A; OWASP Cryptographic Storage Cheat Sheet",
+    "tags": ["security", "cryptography", "hash", "S324", "SCAN-MD5"]
+  },
+  {
+    "id": "bp-path-traversal",
+    "category": "security",
+    "title": "Validate file paths against a trusted root",
+    "principle": "User-supplied paths must be resolved and checked against an allowed root directory to prevent path traversal (../../../etc/passwd).",
+    "source": "OWASP Path Traversal — CWE-22",
+    "tags": ["security", "path-traversal", "file-access"]
+  },
+  {
+    "id": "bp-xss-innerhtml",
+    "category": "security",
+    "title": "Do not assign to innerHTML with untrusted content",
+    "principle": "innerHTML = userContent executes embedded scripts and allows XSS. Use textContent for text or a sanitizer (DOMPurify) for HTML.",
+    "source": "OWASP Cross-Site Scripting Prevention Cheat Sheet; MDN",
+    "tags": ["security", "xss", "javascript", "SCAN-INNERHTML"]
+  },
+  {
+    "id": "bp-xss-docwrite",
+    "category": "security",
+    "title": "Avoid document.write with dynamic content",
+    "principle": "document.write can inject arbitrary HTML/JS when the argument contains user data. Use DOM APIs (createElement, appendChild) instead.",
+    "source": "OWASP DOM-based XSS Prevention Cheat Sheet",
+    "tags": ["security", "xss", "javascript", "SCAN-DOC-WRITE"]
+  },
+  {
+    "id": "bp-csrf",
+    "category": "security",
+    "title": "Protect state-changing endpoints against CSRF",
+    "principle": "POST/PUT/DELETE endpoints that change state must verify a CSRF token or enforce SameSite cookie policy so cross-origin requests are rejected.",
+    "source": "OWASP CSRF Prevention Cheat Sheet",
+    "tags": ["security", "csrf", "web", "api"]
+  },
+  {
+    "id": "bp-least-privilege",
+    "category": "security",
+    "title": "Apply least-privilege access to resources",
+    "principle": "Services, DB connections, and file handles should request only the permissions they need. A DB user that can only SELECT cannot be used to DROP tables.",
+    "source": "NIST AC-6 Least Privilege; OWASP Access Control Cheat Sheet",
+    "tags": ["security", "access-control", "permissions"]
+  },
+  {
+    "id": "bp-auth-info-leak",
+    "category": "security",
+    "title": "Use generic error messages for authentication failures",
+    "principle": "Distinguish \"invalid credentials\" from \"account not found\" only internally; return the same generic message externally to prevent user enumeration.",
+    "source": "OWASP Authentication Cheat Sheet — User Enumeration",
+    "tags": ["security", "authentication", "info-disclosure"]
+  },
+  {
+    "id": "bp-dependencies",
+    "category": "security",
+    "title": "Keep dependencies up to date and audited",
+    "principle": "Outdated dependencies are one of the leading sources of known vulnerabilities (OWASP A06). Pin versions, run automated audits (pip audit, npm audit), and update regularly.",
+    "source": "OWASP Top 10 A06:2021 — Vulnerable and Outdated Components",
+    "tags": ["security", "dependencies", "supply-chain"]
   },
   {
     "id": "bp-bare-except",
+    "category": "code",
     "title": "Never use bare except",
     "principle": "A bare 'except:' swallows everything including KeyboardInterrupt and SystemExit, hiding bugs. Catch the specific exception types you expect.",
     "source": "PEP 8 — Programming Recommendations",
@@ -36,13 +121,15 @@
   },
   {
     "id": "bp-swallow-exception",
+    "category": "code",
     "title": "Don't silently swallow exceptions",
-    "principle": "try/except/pass discards errors with no trace. At minimum log the exception so failures are observable.",
+    "principle": "try/except/pass discards errors with no trace. At minimum log the exception so failures are observable in production.",
     "source": "Bandit B110; Google Python Style Guide",
     "tags": ["code", "error-handling", "logging", "S110"]
   },
   {
     "id": "bp-mutable-default",
+    "category": "code",
     "title": "Avoid mutable default arguments",
     "principle": "A list/dict default is created once and shared across calls, causing state to leak between invocations. Default to None and create the container inside the function.",
     "source": "Python Common Gotchas; Ruff B006",
@@ -50,6 +137,7 @@
   },
   {
     "id": "bp-complexity",
+    "category": "code",
     "title": "Keep functions simple",
     "principle": "High cyclomatic complexity correlates with defects and makes code hard to test. Extract helpers and reduce branching when complexity exceeds ~10.",
     "source": "McCabe, 'A Complexity Measure' (1976); Ruff C901",
@@ -57,6 +145,7 @@
   },
   {
     "id": "bp-dead-code",
+    "category": "code",
     "title": "Remove dead/unused code",
     "principle": "Unused variables and imports add noise and can hide bugs. Delete them; tools like ruff flag F401/F841.",
     "source": "Ruff Pyflakes rules; Clean Code (Martin)",
@@ -64,37 +153,386 @@
   },
   {
     "id": "bp-docstrings",
+    "category": "code",
     "title": "Document public functions",
     "principle": "Public functions and modules should have docstrings describing intent, args, and return values so callers don't have to read the implementation.",
     "source": "PEP 257 — Docstring Conventions",
-    "tags": ["style", "docs", "AST-DOC"]
-  },
-  {
-    "id": "bp-tests",
-    "title": "Cover changed logic with tests",
-    "principle": "New or modified behavior should ship with tests. Untested branches are the most common source of regressions.",
-    "source": "Google Testing Blog; Working Effectively with Legacy Code",
-    "tags": ["test", "coverage", "missing-tests"]
-  },
-  {
-    "id": "bp-input-validation",
-    "title": "Validate and sanitize external input",
-    "principle": "Treat all external input as untrusted. Validate type, range, and format at the boundary before use.",
-    "source": "OWASP Input Validation Cheat Sheet",
-    "tags": ["security", "validation", "robustness"]
-  },
-  {
-    "id": "bp-logging",
-    "title": "Use logging, not print",
-    "principle": "Use the logging module instead of print so output has levels, can be filtered, and routed to handlers in production.",
-    "source": "Python Logging HOWTO",
-    "tags": ["style", "logging", "observability"]
+    "tags": ["code", "docs", "AST-DOC"]
   },
   {
     "id": "bp-type-hints",
+    "category": "code",
     "title": "Add type hints to public APIs",
     "principle": "Type hints catch whole classes of bugs via static analysis and document intent. Annotate public function signatures.",
     "source": "PEP 484 — Type Hints",
-    "tags": ["style", "types", "maintainability"]
+    "tags": ["code", "types", "maintainability"]
+  },
+  {
+    "id": "bp-magic-numbers",
+    "category": "code",
+    "title": "Replace magic numbers and strings with named constants",
+    "principle": "Unexplained literals (3, 86400, 'admin') make intent opaque and create maintenance traps when the value must change. Extract them as named constants.",
+    "source": "Clean Code — Robert C. Martin; PEP 8",
+    "tags": ["code", "readability", "maintainability"]
+  },
+  {
+    "id": "bp-long-functions",
+    "category": "code",
+    "title": "Keep functions short and focused",
+    "principle": "Functions longer than 40–50 lines typically do more than one thing. Extract cohesive sub-operations into well-named helper functions.",
+    "source": "Clean Code — Robert C. Martin; Google Python Style Guide",
+    "tags": ["code", "complexity", "maintainability", "AST-LEN"]
+  },
+  {
+    "id": "bp-deep-nesting",
+    "category": "code",
+    "title": "Avoid deep nesting",
+    "principle": "More than 3 levels of indentation (if/for/try) makes control flow hard to reason about. Use guard clauses, early return, and extraction to flatten nesting.",
+    "source": "Clean Code; Refactoring — Fowler",
+    "tags": ["code", "complexity", "readability"]
+  },
+  {
+    "id": "bp-global-state",
+    "category": "code",
+    "title": "Avoid global mutable state",
+    "principle": "Module-level mutable variables are invisible dependencies that make code non-deterministic and hard to test. Pass state explicitly or encapsulate in a class.",
+    "source": "Clean Architecture — Robert C. Martin; Python docs",
+    "tags": ["code", "design", "testability"]
+  },
+  {
+    "id": "bp-early-return",
+    "category": "code",
+    "title": "Use guard clauses and early return",
+    "principle": "Validate preconditions at the top and return/raise immediately. This keeps the happy path un-indented and preconditions explicit.",
+    "source": "Refactoring — Fowler; Clean Code",
+    "tags": ["code", "readability", "control-flow"]
+  },
+  {
+    "id": "bp-srp",
+    "category": "design",
+    "title": "Apply Single Responsibility Principle",
+    "principle": "A module, class, or function should have one reason to change. When a unit does two unrelated things, split it — each part becomes easier to test and replace.",
+    "source": "Clean Architecture — Robert C. Martin; SOLID Principles",
+    "tags": ["design", "SOLID", "SRP"]
+  },
+  {
+    "id": "bp-dry",
+    "category": "design",
+    "title": "Don't Repeat Yourself (DRY)",
+    "principle": "Every piece of knowledge must have a single, unambiguous, authoritative representation. Duplication means two places to update when the rule changes.",
+    "source": "The Pragmatic Programmer — Hunt & Thomas",
+    "tags": ["design", "DRY", "maintainability"]
+  },
+  {
+    "id": "bp-dependency-injection",
+    "category": "design",
+    "title": "Depend on abstractions, inject dependencies",
+    "principle": "High-level modules should not depend on low-level implementations. Inject concrete dependencies (DB, HTTP client, clock) rather than constructing them internally — makes code testable and swappable.",
+    "source": "SOLID — Dependency Inversion Principle; Clean Architecture",
+    "tags": ["design", "SOLID", "DI", "testability"]
+  },
+  {
+    "id": "bp-open-closed",
+    "category": "design",
+    "title": "Design for extension, not modification",
+    "principle": "Existing, tested code should not need to change to accommodate new behaviors. Use polymorphism, strategy pattern, or hooks so new cases extend rather than fork existing logic.",
+    "source": "Open/Closed Principle — Bertrand Meyer; SOLID",
+    "tags": ["design", "SOLID", "OCP"]
+  },
+  {
+    "id": "bp-separation-concerns",
+    "category": "design",
+    "title": "Separate data access, business logic, and presentation",
+    "principle": "Mixing SQL queries with business rules in view handlers creates a tightly coupled ball-of-mud. Separate layers so each can change independently.",
+    "source": "Separation of Concerns — Dijkstra; Clean Architecture",
+    "tags": ["design", "layering", "SoC"]
+  },
+  {
+    "id": "bp-repository-pattern",
+    "category": "design",
+    "title": "Use the Repository pattern for data access",
+    "principle": "Data access logic belongs in a dedicated repository layer, not scattered across service code. Repositories abstract the storage mechanism and make switching or testing storage trivial.",
+    "source": "Domain-Driven Design — Eric Evans; Martin Fowler — Patterns of Enterprise Application Architecture",
+    "tags": ["design", "repository", "database"]
+  },
+  {
+    "id": "bp-config-externalization",
+    "category": "design",
+    "title": "Externalize all configuration",
+    "principle": "Port numbers, URLs, feature flags, and thresholds must not be baked into code. Load from environment variables or a config file so deployments differ only in config, not code.",
+    "source": "12-Factor App — III. Config; OWASP Configuration Cheat Sheet",
+    "tags": ["design", "config", "12factor", "devops"]
+  },
+  {
+    "id": "bp-error-boundaries",
+    "category": "design",
+    "title": "Handle errors at appropriate boundaries",
+    "principle": "Propagate exceptions to the outermost layer that has enough context to handle them meaningfully. Don't catch-and-ignore internally; don't let implementation exceptions leak across API boundaries.",
+    "source": "Clean Code — Robert C. Martin; Domain-Driven Design",
+    "tags": ["design", "error-handling", "robustness"]
+  },
+  {
+    "id": "bp-interface-design",
+    "category": "design",
+    "title": "Design interfaces before implementation",
+    "principle": "Define the contract (signature, behavior, errors) of a module before writing its internals. This surfaces coupling early and drives a consumer-first API.",
+    "source": "Interface Segregation Principle — SOLID; Test-Driven Development",
+    "tags": ["design", "SOLID", "ISP"]
+  },
+  {
+    "id": "bp-tests",
+    "category": "testing",
+    "title": "Cover changed logic with tests",
+    "principle": "New or modified behavior should ship with tests. Untested branches are the most common source of regressions.",
+    "source": "Google Testing Blog; Working Effectively with Legacy Code — Feathers",
+    "tags": ["testing", "coverage", "missing-tests"]
+  },
+  {
+    "id": "bp-unit-test-public",
+    "category": "testing",
+    "title": "Test public interfaces, not private internals",
+    "principle": "Tests coupled to private methods break on every refactor. Write tests that verify observable behavior through the public API — they survive implementation changes.",
+    "source": "Test-Driven Development — Kent Beck; Google Testing Blog",
+    "tags": ["testing", "unit-test", "design"]
+  },
+  {
+    "id": "bp-aaa-pattern",
+    "category": "testing",
+    "title": "Structure tests with Arrange-Act-Assert",
+    "principle": "Each test should set up its context (Arrange), execute the unit under test (Act), and verify the outcome (Assert). One assert per logical behavior keeps failures informative.",
+    "source": "TDD by Example — Kent Beck; xUnit Patterns",
+    "tags": ["testing", "structure", "readability"]
+  },
+  {
+    "id": "bp-mock-at-boundaries",
+    "category": "testing",
+    "title": "Mock only at system boundaries",
+    "principle": "Mock external services (HTTP, DB, clock, file system) but not internal classes. Over-mocking creates tests that pass against incorrect implementations.",
+    "source": "Growing Object-Oriented Software Guided by Tests — Freeman & Pryce",
+    "tags": ["testing", "mocking", "integration"]
+  },
+  {
+    "id": "bp-logging",
+    "category": "observability",
+    "title": "Use logging, not print",
+    "principle": "Use the logging module instead of print so output has levels, can be filtered, and routed to handlers in production without code changes.",
+    "source": "Python Logging HOWTO",
+    "tags": ["observability", "logging"]
+  },
+  {
+    "id": "bp-structured-logging",
+    "category": "observability",
+    "title": "Emit structured (JSON) logs in production",
+    "principle": "Structured logs are machine-parseable by aggregators (Datadog, ELK). Include request_id, user_id, duration, and outcome as fields rather than embedded in message strings.",
+    "source": "12-Factor App — XI. Logs; OpenTelemetry Logging",
+    "tags": ["observability", "logging", "production"]
+  },
+  {
+    "id": "bp-log-levels",
+    "category": "observability",
+    "title": "Use appropriate log levels",
+    "principle": "DEBUG for developer tracing, INFO for normal operations, WARNING for recoverable anomalies, ERROR for failures that need attention. Reserve CRITICAL for system-wide outages.",
+    "source": "Python Logging HOWTO; Google Site Reliability Engineering",
+    "tags": ["observability", "logging", "ops"]
+  },
+  {
+    "id": "bp-no-sensitive-logs",
+    "category": "security",
+    "title": "Never log sensitive data",
+    "principle": "Passwords, tokens, credit card numbers, and PII must never appear in log output. Redact or omit them before logging; log IDs instead of values.",
+    "source": "OWASP Logging Cheat Sheet; GDPR Article 32",
+    "tags": ["security", "logging", "privacy", "observability"]
+  },
+  {
+    "id": "bp-js-strict-equality",
+    "category": "code",
+    "title": "Use strict equality (===) in JavaScript",
+    "principle": "== in JavaScript performs implicit type coercion that produces surprising results (0 == '0' is true). Use === and !== so comparisons are type-safe.",
+    "source": "MDN — Equality comparisons and sameness; Airbnb JS Style Guide",
+    "tags": ["code", "javascript", "typescript", "bugs"]
+  },
+  {
+    "id": "bp-js-no-var",
+    "category": "code",
+    "title": "Use const and let instead of var",
+    "principle": "var is function-scoped and hoisted, causing subtle bugs in loops and closures. const/let are block-scoped and make intent (mutability) explicit.",
+    "source": "MDN — let/const; ECMAScript 2015 (ES6) specification",
+    "tags": ["code", "javascript", "typescript", "scope"]
+  },
+  {
+    "id": "bp-promise-rejection",
+    "category": "code",
+    "title": "Handle all Promise rejections",
+    "principle": "Unhandled Promise rejections crash Node.js processes and silently lose errors in browsers. Always attach .catch() or use async/await with try/catch.",
+    "source": "MDN — Promise; Node.js unhandledRejection event",
+    "tags": ["code", "javascript", "typescript", "async", "error-handling"]
+  },
+  {
+    "id": "bp-ts-strict",
+    "category": "code",
+    "title": "Enable TypeScript strict mode",
+    "principle": "strict: true enables noImplicitAny, strictNullChecks, and other checks that catch a large class of runtime errors at compile time. Start strict on new projects; add it incrementally to existing ones.",
+    "source": "TypeScript Handbook — Strict mode; Google TypeScript Style Guide",
+    "tags": ["code", "typescript", "types"]
+  },
+  {
+    "id": "bp-no-sensitive-response",
+    "category": "security",
+    "title": "Never expose sensitive data in API responses",
+    "principle": "Password hashes, tokens, internal IDs, and stack traces must be stripped from API responses. Serialize only the fields the client needs (allowlist, not blocklist).",
+    "source": "OWASP API Security Top 10 — API3:2023 Broken Object Property Level Authorization",
+    "tags": ["security", "api", "data-exposure"]
+  },
+  {
+    "id": "bp-http-status-codes",
+    "category": "api",
+    "title": "Return correct HTTP status codes",
+    "principle": "200 for success, 201 for creation, 400 for client errors, 401/403 for auth, 404 for missing, 500 for server errors. Returning 200 with an error body breaks HTTP semantics and breaks clients.",
+    "source": "RFC 9110 — HTTP Semantics; RESTful Web API Patterns and Practices",
+    "tags": ["api", "http", "design"]
+  },
+  {
+    "id": "bp-api-validation",
+    "category": "security",
+    "title": "Validate all API inputs at the boundary",
+    "principle": "Validate schema, types, ranges, and required fields as the first step in every endpoint handler — before any business logic or DB access. Use a schema library (Pydantic, Zod, Joi).",
+    "source": "OWASP API Security Top 10 — API1:2023 Broken Object Level Authorization",
+    "tags": ["security", "api", "validation", "robustness"]
+  },
+  {
+    "id": "bp-rate-limiting",
+    "category": "security",
+    "title": "Rate-limit sensitive endpoints",
+    "principle": "Login, password reset, and OTP endpoints must be rate-limited to prevent brute-force attacks. Use token-bucket or sliding-window algorithms with per-IP and per-account limits.",
+    "source": "OWASP API Security Top 10 — API4:2023 Unrestricted Resource Consumption",
+    "tags": ["security", "api", "rate-limiting", "authentication"]
+  },
+  {
+    "id": "bp-immutability",
+    "category": "code",
+    "title": "Prefer immutable data structures",
+    "principle": "Mutable shared state is the most common source of concurrency bugs and unexpected side effects. Prefer immutable records/namedtuples/frozen dataclasses; copy-on-write when mutation is needed.",
+    "source": "Effective Java — Joshua Bloch; Functional Programming Principles",
+    "tags": ["code", "design", "concurrency", "bugs"]
+  },
+  {
+    "id": "bp-context-managers",
+    "category": "code",
+    "title": "Use context managers for resource lifecycle",
+    "principle": "Files, DB connections, and locks must be closed/released even when exceptions occur. Use with statements (context managers) rather than manual try/finally cleanup.",
+    "source": "PEP 343 — The with Statement; Python docs — contextlib",
+    "tags": ["code", "resources", "error-handling", "python"]
+  },
+  {
+    "id": "bp-token-security",
+    "category": "security",
+    "title": "Treat bearer tokens as passwords",
+    "principle": "Passwordless and token-based auth shifts the security burden from static passwords to dynamic bearer tokens — anyone who possesses a token can use it. Always transmit tokens over TLS. Never store tokens in browser localStorage; use HTTP-only secure cookies or platform secure storage on mobile. Validate the signature, issuer, and audience on every token. Use short-lived access tokens with a secure refresh token rotation strategy so compromised tokens expire quickly.",
+    "source": "OAuth 2.0 Security Best Current Practice (RFC 9700); OWASP Authentication Cheat Sheet",
+    "tags": ["security", "authentication", "tokens", "oauth", "jwt", "tls", "cookies"]
+  },
+  {
+    "id": "bp-sql-stored-procedures",
+    "category": "security",
+    "title": "Use safely implemented stored procedures as a SQL injection defense",
+    "principle": "Stored procedures can prevent SQL injection when implemented safely — meaning they do not include any unsafe dynamic SQL generation. The SQL code for a stored procedure is defined and stored in the database itself, then called from the application. Since prepared statements and safe stored procedures are equally effective in preventing SQL injection, the organization should choose the approach that makes the most sense for it. Be aware: stored procedures require execute rights, and in some setups this forces web apps to run as db_owner, granting attackers full database rights if the server is breached.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "stored-procedures", "database"]
+  },
+  {
+    "id": "bp-sql-allowlist-validation",
+    "category": "security",
+    "title": "Use allow-list validation for SQL identifiers that cannot use bind variables",
+    "principle": "If you are faced with parts of SQL queries that can't use bind variables, such as table names, column names, or sort order indicators (ASC or DESC), input validation or query redesign is the most appropriate defense. When table or column names are needed, ideally those values come from the code and not from user parameters. Using user parameter values to target table or column names is a symptom of poor design and a full rewrite should be considered if time allows. Input validation is also recommended as a secondary defense in ALL cases, even when using bind variables.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "input-validation", "allowlist", "S608"]
+  },
+  {
+    "id": "bp-sql-avoid-string-escaping",
+    "category": "security",
+    "title": "Do not rely on escaping user input as primary SQL injection defense",
+    "principle": "Escaping all user-supplied input before putting it in a query is very database specific in its implementation. This methodology is fragile compared to other defenses, and cannot guarantee prevention of all SQL injections in all situations. If an application is built from scratch or requires low risk tolerance, it should be built or re-written using parameterized queries, stored procedures, or some kind of Object Relational Mapper (ORM) that builds the queries automatically.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "escaping", "orm"]
+  },
+  {
+    "id": "bp-db-least-privilege",
+    "category": "security",
+    "title": "Apply least privilege to every database account",
+    "principle": "To minimize the potential damage of a successful SQL injection attack, minimize the privileges assigned to every database account in the environment. Start from the ground up to determine what access rights application accounts require, rather than trying to figure out what access rights to take away. Make sure that accounts that only need read access are only granted read access to the tables they need access to. DO NOT ASSIGN DBA OR ADMIN TYPE ACCESS TO APPLICATION ACCOUNTS. Also minimize the privileges of the operating system account that the DBMS runs under — do not run the DBMS as root or system.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "least-privilege", "access-control", "sql"]
+  },
+  {
+    "id": "bp-db-separate-users",
+    "category": "security",
+    "title": "Use separate database users for each web application",
+    "principle": "Different DB users should be used for different web applications. Each separate web application that requires access to the database should have a designated database user account that the application will use to connect to the DB. That way, the designer of the application can have good granularity in the access control, thus reducing the privileges as much as possible. Each DB user will then have select access to only what it needs, and write-access as needed.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "least-privilege", "access-control", "multi-tenant"]
+  },
+  {
+    "id": "bp-db-views-access-control",
+    "category": "security",
+    "title": "Use SQL views to enforce fine-grained read access",
+    "principle": "SQL views can further increase the granularity of access by limiting the read access to specific fields of a table or joins of tables. If an account only needs access to portions of a table, consider creating a view that limits access to that portion of the data and assigning the account access to the view instead of the underlying table. Any SQL injection attack that succeeds in stealing DB information will be restricted to stealing only what the view exposes. Rarely, if ever, grant create or delete access to database accounts.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "access-control", "sql", "views", "least-privilege"]
+  },
+  {
+    "id": "bp-websocket-tls",
+    "category": "security",
+    "title": "Always use WSS (WebSocket Secure) in production",
+    "principle": "Unencrypted ws:// connections allow eavesdropping and tampering. Production WebSocket connections must always use the encrypted wss:// scheme. Only support RFC 6455 (the current WebSocket standard) and drop backward compatibility for outdated versions like Hixie-76 and hybi-00, which have known security vulnerabilities. Disable permessage-deflate compression unless specifically needed — compression combined with secret data can leak information through attacks similar to CRIME/BREACH.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "tls", "encryption", "transport"]
+  },
+  {
+    "id": "bp-websocket-origin-validation",
+    "category": "security",
+    "title": "Validate the Origin header on every WebSocket handshake",
+    "principle": "WebSockets have no built-in authentication. Browsers include cookies in WebSocket handshake requests, making applications vulnerable to Cross-Site WebSocket Hijacking (CSWSH): a malicious site can open a WebSocket to the application, the browser sends cookies automatically, and the attacker gets live authenticated access. Always validate the Origin header on every handshake using an explicit allowlist of trusted origins. Never use wildcards or substring matching — these are error-prone. Browsers include the Origin header and malicious JavaScript cannot override it.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "cswsh", "origin", "authentication", "csrf"]
+  },
+  {
+    "id": "bp-websocket-session-management",
+    "category": "security",
+    "title": "Actively manage WebSocket session lifecycle",
+    "principle": "WebSocket connections often outlive normal HTTP sessions and require special handling. Use SameSite=Lax or Strict cookies to prevent cross-site cookie transmission. Implement server-side validation for long-running connections and close WebSocket connections when the associated session expires — re-validate sessions periodically (every 30 minutes is common). When users log out, close all their active WebSocket connections immediately by maintaining a mapping of sessions to connections. Rotate tokens in long-lived connections to prevent hijacked sessions from persisting.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "session", "authentication", "cookies", "logout"]
+  },
+  {
+    "id": "bp-websocket-message-authorization",
+    "category": "security",
+    "title": "Check authorization on every WebSocket message, not just on connection",
+    "principle": "Establishing a WebSocket connection does not grant unlimited access. Authorization must be checked for each action or message the client sends — a connected user may not be authorized to perform every operation. Treat each incoming message as a discrete request and enforce role or permission checks before processing it.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "authorization", "access-control"]
+  },
+  {
+    "id": "bp-websocket-input-validation",
+    "category": "security",
+    "title": "Treat all WebSocket messages as untrusted input",
+    "principle": "WebSocket messages can carry injection payloads such as SQL injection, XSS, and command injection. Validate message structure and content using JSON schemas and allow-lists. Set reasonable size limits (typically 64KB or less) and implement rate limiting to prevent message flooding. For binary data, verify file types using magic numbers rather than trusting content-type headers. Always use JSON.parse() instead of eval() for JSON processing — eval() enables code execution from untrusted input. Include timestamps or nonces in messages and reject duplicates to prevent replay attacks.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "input-validation", "injection", "xss", "replay", "SCAN-EVAL"]
+  },
+  {
+    "id": "bp-websocket-dos-protection",
+    "category": "security",
+    "title": "Protect WebSocket servers against denial-of-service",
+    "principle": "Persistent WebSocket connections increase DoS risk because attackers can exhaust connections or overwhelm memory. Restrict total connections and implement per-user limits. Set message size limits (typically 64KB or less) and implement rate limiting — 100 messages per minute is a common starting point. Implement idle timeouts to close inactive connections and use heartbeat ping/pong frames to detect and clean up dead connections. Implement backpressure controls to prevent memory exhaustion from fast message producers.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "dos", "rate-limiting", "connection-limits"]
+  },
+  {
+    "id": "bp-websocket-logging",
+    "category": "observability",
+    "title": "Log WebSocket security events, not message contents",
+    "principle": "Traditional HTTP access logs only capture the initial WebSocket upgrade request, not subsequent message traffic — authentication failures, injection attempts, and rate-limit violations are invisible without additional instrumentation. Log connection establishment and termination (with user identity, IP, and origin), authentication and authorization events, security violations such as rate-limiting triggers and message validation failures, and abnormal disconnections. Never log complete message contents, authentication tokens, session IDs, or personal information that could violate privacy regulations.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["observability", "websocket", "logging", "security", "monitoring"]
   }
 ]

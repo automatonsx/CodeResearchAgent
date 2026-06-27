@@ -59,12 +59,14 @@ def run_ruff(target, select: str = _SELECT) -> list[dict]:
             [exe, "check", "--output-format", "json", "--select", select, "--quiet", *paths],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=120,
         )
     except Exception:
         return []
 
-    out = proc.stdout.strip()
+    out = (proc.stdout or "").strip()
     if not out:
         return []
     try:
