@@ -14,6 +14,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows terminals default to cp1252 which can't encode emoji.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def _staged_files() -> list[str]:
     """Return absolute paths of staged, non-deleted files."""

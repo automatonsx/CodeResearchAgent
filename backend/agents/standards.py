@@ -18,6 +18,7 @@ import re
 
 from ..state import ReviewState
 from ..llm import chat_json, load_prompt
+from ..corpus.build_index import retrieve as corpus_retrieve
 
 # Config files that encode tooling rules worth surfacing in the skill
 _CONFIG_FILES = [
@@ -26,6 +27,33 @@ _CONFIG_FILES = [
     "setup.cfg", ".flake8", "tox.ini",
 ]
 _MAX_CONFIG_CHARS = 800
+
+
+_CATEGORIES = ["security", "code", "design", "testing", "observability", "api"]
+
+
+def _relevant_corpus_practices(language: str, frameworks: list[str]) -> list[dict]:
+    """Return all corpus practices relevant to this repo's language and frameworks.
+
+    Queries each category with language+framework context so the result set covers
+    the full applicable knowledge base — not just what findings happened to trigger.
+    """
+    seen: set[str] = set()
+    practices: list[dict] = []
+    for cat in _CATEGORIES:
+        query = " ".join(filter(None, [language] + frameworks + [cat, "best practices"]))
+        for hit in corpus_retrieve(query, k=20, category=cat):
+            pid = hit.get("id") or hit.get("title", "")
+            if pid and pid not in seen:
+                seen.add(pid)
+                practices.append({
+                    "id": pid,
+                    "title": hit.get("title", ""),
+                    "category": hit.get("category", cat),
+                    "principle": hit.get("principle", ""),
+                    "source": hit.get("source", ""),
+                })
+    return practices
 
 
 _FRAMEWORK_PATTERNS = {
@@ -119,4 +147,8 @@ def standards_node(state: ReviewState) -> ReviewState:
         print(f"[Scout] standards_node failed: {exc}", file=sys.stderr)
         data = {}
 
-    return {"standards": data}
+    corpus_practices = _relevant_corpus_practices(
+        ctx.get("language", "unknown"),
+        frameworks,
+    )
+    return {"standards": {**data, "corpus_practices": corpus_practices}}

@@ -16,6 +16,15 @@ from pathlib import Path
 
 _SEV_ICON = {"critical": "🔴", "major": "🟠", "minor": "🟡", "suggestion": "🔵"}
 
+_CATEGORY_LABELS = {
+    "security":      ("🔐", "Security"),
+    "code":          ("⚙️",  "Code Quality"),
+    "design":        ("🏗️", "Architecture & Design"),
+    "testing":       ("🧪", "Testing"),
+    "observability": ("📊", "Observability"),
+    "api":           ("🔌", "API Design"),
+}
+
 
 def _indent_code(text: str, prefix: str = "    ") -> str:
     """Indent every line of a code example so it renders correctly inside a fenced block."""
@@ -163,6 +172,37 @@ def standards_to_skill(
         "python scripts/install_hooks.py",
         "```",
     ]
+
+    # ── BEST PRACTICES REFERENCE ──────────────────────────────────────────────
+    corpus_practices = standards.get("corpus_practices", [])
+    if corpus_practices:
+        by_cat: dict[str, list[dict]] = {}
+        for p in corpus_practices:
+            by_cat.setdefault(p.get("category", "code"), []).append(p)
+
+        lines += [
+            "",
+            "---",
+            "",
+            "## 📚 Best Practices for This Stack",
+            "",
+            "All applicable practices from Scout's curated knowledge base, "
+            "matched to this repo's language and frameworks.",
+            "",
+        ]
+        for cat in ["security", "code", "design", "testing", "observability", "api"]:
+            cat_practices = by_cat.get(cat, [])
+            if not cat_practices:
+                continue
+            emoji, label = _CATEGORY_LABELS.get(cat, ("•", cat.title()))
+            lines += [f"### {emoji} {label}", ""]
+            for p in cat_practices:
+                lines.append(f"- **{p['title']}**")
+                if p.get("principle"):
+                    lines.append(f"  {p['principle']}")
+                if p.get("source"):
+                    lines.append(f"  _Source: {p['source']}_")
+                lines.append("")
 
     return "\n".join(lines)
 

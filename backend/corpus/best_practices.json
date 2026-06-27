@@ -422,5 +422,117 @@
     "principle": "Files, DB connections, and locks must be closed/released even when exceptions occur. Use with statements (context managers) rather than manual try/finally cleanup.",
     "source": "PEP 343 — The with Statement; Python docs — contextlib",
     "tags": ["code", "resources", "error-handling", "python"]
+  },
+  {
+    "id": "bp-token-security",
+    "category": "security",
+    "title": "Treat bearer tokens as passwords",
+    "principle": "Passwordless and token-based auth shifts the security burden from static passwords to dynamic bearer tokens — anyone who possesses a token can use it. Always transmit tokens over TLS. Never store tokens in browser localStorage; use HTTP-only secure cookies or platform secure storage on mobile. Validate the signature, issuer, and audience on every token. Use short-lived access tokens with a secure refresh token rotation strategy so compromised tokens expire quickly.",
+    "source": "OAuth 2.0 Security Best Current Practice (RFC 9700); OWASP Authentication Cheat Sheet",
+    "tags": ["security", "authentication", "tokens", "oauth", "jwt", "tls", "cookies"]
+  },
+  {
+    "id": "bp-sql-stored-procedures",
+    "category": "security",
+    "title": "Use safely implemented stored procedures as a SQL injection defense",
+    "principle": "Stored procedures can prevent SQL injection when implemented safely — meaning they do not include any unsafe dynamic SQL generation. The SQL code for a stored procedure is defined and stored in the database itself, then called from the application. Since prepared statements and safe stored procedures are equally effective in preventing SQL injection, the organization should choose the approach that makes the most sense for it. Be aware: stored procedures require execute rights, and in some setups this forces web apps to run as db_owner, granting attackers full database rights if the server is breached.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "stored-procedures", "database"]
+  },
+  {
+    "id": "bp-sql-allowlist-validation",
+    "category": "security",
+    "title": "Use allow-list validation for SQL identifiers that cannot use bind variables",
+    "principle": "If you are faced with parts of SQL queries that can't use bind variables, such as table names, column names, or sort order indicators (ASC or DESC), input validation or query redesign is the most appropriate defense. When table or column names are needed, ideally those values come from the code and not from user parameters. Using user parameter values to target table or column names is a symptom of poor design and a full rewrite should be considered if time allows. Input validation is also recommended as a secondary defense in ALL cases, even when using bind variables.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "input-validation", "allowlist", "S608"]
+  },
+  {
+    "id": "bp-sql-avoid-string-escaping",
+    "category": "security",
+    "title": "Do not rely on escaping user input as primary SQL injection defense",
+    "principle": "Escaping all user-supplied input before putting it in a query is very database specific in its implementation. This methodology is fragile compared to other defenses, and cannot guarantee prevention of all SQL injections in all situations. If an application is built from scratch or requires low risk tolerance, it should be built or re-written using parameterized queries, stored procedures, or some kind of Object Relational Mapper (ORM) that builds the queries automatically.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "injection", "sql", "escaping", "orm"]
+  },
+  {
+    "id": "bp-db-least-privilege",
+    "category": "security",
+    "title": "Apply least privilege to every database account",
+    "principle": "To minimize the potential damage of a successful SQL injection attack, minimize the privileges assigned to every database account in the environment. Start from the ground up to determine what access rights application accounts require, rather than trying to figure out what access rights to take away. Make sure that accounts that only need read access are only granted read access to the tables they need access to. DO NOT ASSIGN DBA OR ADMIN TYPE ACCESS TO APPLICATION ACCOUNTS. Also minimize the privileges of the operating system account that the DBMS runs under — do not run the DBMS as root or system.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "least-privilege", "access-control", "sql"]
+  },
+  {
+    "id": "bp-db-separate-users",
+    "category": "security",
+    "title": "Use separate database users for each web application",
+    "principle": "Different DB users should be used for different web applications. Each separate web application that requires access to the database should have a designated database user account that the application will use to connect to the DB. That way, the designer of the application can have good granularity in the access control, thus reducing the privileges as much as possible. Each DB user will then have select access to only what it needs, and write-access as needed.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "least-privilege", "access-control", "multi-tenant"]
+  },
+  {
+    "id": "bp-db-views-access-control",
+    "category": "security",
+    "title": "Use SQL views to enforce fine-grained read access",
+    "principle": "SQL views can further increase the granularity of access by limiting the read access to specific fields of a table or joins of tables. If an account only needs access to portions of a table, consider creating a view that limits access to that portion of the data and assigning the account access to the view instead of the underlying table. Any SQL injection attack that succeeds in stealing DB information will be restricted to stealing only what the view exposes. Rarely, if ever, grant create or delete access to database accounts.",
+    "source": "OWASP SQL Injection Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "tags": ["security", "database", "access-control", "sql", "views", "least-privilege"]
+  },
+  {
+    "id": "bp-websocket-tls",
+    "category": "security",
+    "title": "Always use WSS (WebSocket Secure) in production",
+    "principle": "Unencrypted ws:// connections allow eavesdropping and tampering. Production WebSocket connections must always use the encrypted wss:// scheme. Only support RFC 6455 (the current WebSocket standard) and drop backward compatibility for outdated versions like Hixie-76 and hybi-00, which have known security vulnerabilities. Disable permessage-deflate compression unless specifically needed — compression combined with secret data can leak information through attacks similar to CRIME/BREACH.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "tls", "encryption", "transport"]
+  },
+  {
+    "id": "bp-websocket-origin-validation",
+    "category": "security",
+    "title": "Validate the Origin header on every WebSocket handshake",
+    "principle": "WebSockets have no built-in authentication. Browsers include cookies in WebSocket handshake requests, making applications vulnerable to Cross-Site WebSocket Hijacking (CSWSH): a malicious site can open a WebSocket to the application, the browser sends cookies automatically, and the attacker gets live authenticated access. Always validate the Origin header on every handshake using an explicit allowlist of trusted origins. Never use wildcards or substring matching — these are error-prone. Browsers include the Origin header and malicious JavaScript cannot override it.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "cswsh", "origin", "authentication", "csrf"]
+  },
+  {
+    "id": "bp-websocket-session-management",
+    "category": "security",
+    "title": "Actively manage WebSocket session lifecycle",
+    "principle": "WebSocket connections often outlive normal HTTP sessions and require special handling. Use SameSite=Lax or Strict cookies to prevent cross-site cookie transmission. Implement server-side validation for long-running connections and close WebSocket connections when the associated session expires — re-validate sessions periodically (every 30 minutes is common). When users log out, close all their active WebSocket connections immediately by maintaining a mapping of sessions to connections. Rotate tokens in long-lived connections to prevent hijacked sessions from persisting.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "session", "authentication", "cookies", "logout"]
+  },
+  {
+    "id": "bp-websocket-message-authorization",
+    "category": "security",
+    "title": "Check authorization on every WebSocket message, not just on connection",
+    "principle": "Establishing a WebSocket connection does not grant unlimited access. Authorization must be checked for each action or message the client sends — a connected user may not be authorized to perform every operation. Treat each incoming message as a discrete request and enforce role or permission checks before processing it.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "authorization", "access-control"]
+  },
+  {
+    "id": "bp-websocket-input-validation",
+    "category": "security",
+    "title": "Treat all WebSocket messages as untrusted input",
+    "principle": "WebSocket messages can carry injection payloads such as SQL injection, XSS, and command injection. Validate message structure and content using JSON schemas and allow-lists. Set reasonable size limits (typically 64KB or less) and implement rate limiting to prevent message flooding. For binary data, verify file types using magic numbers rather than trusting content-type headers. Always use JSON.parse() instead of eval() for JSON processing — eval() enables code execution from untrusted input. Include timestamps or nonces in messages and reject duplicates to prevent replay attacks.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "input-validation", "injection", "xss", "replay", "SCAN-EVAL"]
+  },
+  {
+    "id": "bp-websocket-dos-protection",
+    "category": "security",
+    "title": "Protect WebSocket servers against denial-of-service",
+    "principle": "Persistent WebSocket connections increase DoS risk because attackers can exhaust connections or overwhelm memory. Restrict total connections and implement per-user limits. Set message size limits (typically 64KB or less) and implement rate limiting — 100 messages per minute is a common starting point. Implement idle timeouts to close inactive connections and use heartbeat ping/pong frames to detect and clean up dead connections. Implement backpressure controls to prevent memory exhaustion from fast message producers.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["security", "websocket", "dos", "rate-limiting", "connection-limits"]
+  },
+  {
+    "id": "bp-websocket-logging",
+    "category": "observability",
+    "title": "Log WebSocket security events, not message contents",
+    "principle": "Traditional HTTP access logs only capture the initial WebSocket upgrade request, not subsequent message traffic — authentication failures, injection attempts, and rate-limit violations are invisible without additional instrumentation. Log connection establishment and termination (with user identity, IP, and origin), authentication and authorization events, security violations such as rate-limiting triggers and message validation failures, and abnormal disconnections. Never log complete message contents, authentication tokens, session IDs, or personal information that could violate privacy regulations.",
+    "source": "OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSockets_Security_Cheat_Sheet.html",
+    "tags": ["observability", "websocket", "logging", "security", "monitoring"]
   }
 ]
