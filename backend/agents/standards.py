@@ -91,6 +91,28 @@ def _read_config_files(review_path: str) -> dict[str, str]:
     return found
 
 
+# Rule synthesis only needs the DISTINCT patterns, not every duplicate finding.
+# Sending all findings on a large repo overflows the model context (128k) and the
+# call fails — so we keep one representative per distinct rule (highest severity
+# first) and cap the total. No findings are lost from the report; this only bounds
+# the LLM input for SKILL.md rule generation.
+_SEV_RANK = {"critical": 0, "major": 1, "minor": 2, "suggestion": 3}
+_MAX_STANDARDS_FINDINGS = 150
+
+
+def _dedupe_and_cap(findings: list[dict]) -> list[dict]:
+    ordered = sorted(findings, key=lambda f: _SEV_RANK.get(f.get("severity", "minor"), 9))
+    seen: set = set()
+    deduped: list[dict] = []
+    for f in ordered:
+        key = (f.get("category", ""), f.get("tool_evidence") or (f.get("issue", "")[:40]))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(f)
+    return deduped[:_MAX_STANDARDS_FINDINGS]
+
+
 def standards_node(state: ReviewState) -> ReviewState:
     """Synthesize all pipeline findings into an explicit standards object."""
     findings = state.get("findings", [])
@@ -99,6 +121,9 @@ def standards_node(state: ReviewState) -> ReviewState:
 
     if not findings:
         return {"standards": {}}
+
+    # Distinct rule patterns only — bounds the prompt so the call fits the context window.
+    synth_findings = _dedupe_and_cap(findings)
 
     config_files = _read_config_files(review_path)
     frameworks = _detect_frameworks(ctx.get("_file_contents", []))
@@ -124,7 +149,7 @@ def standards_node(state: ReviewState) -> ReviewState:
                 # Corpus citations attached by grounding_node — used to populate rule citations
                 "citations":     f.get("research_basis", []),
             }
-            for f in findings
+            for f in synth_findings
         ],
         "language":     ctx.get("language", "unknown"),
         "frameworks":   frameworks,
