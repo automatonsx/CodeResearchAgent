@@ -226,15 +226,21 @@ def cmd_install_hooks(args) -> None:
 # ── env loader ────────────────────────────────────────────────────────────────
 
 def _load_env() -> None:
-    """Load credentials: local .env first, then ~/.scout/.env as fallback."""
+    """Load credentials, with Scout's OWN config taking priority.
+
+    ``scout setup`` writes ~/.scout/.env — that is Scout's authoritative config and
+    must win over the *target repo's* local .env (which configures that project's app,
+    not Scout's LLM, and may point at a different/low-quota deployment). Loaded first
+    wins, since load_dotenv does not override already-set vars. A local .env is only a
+    fallback for running from Scout's own source checkout.
+    """
     from dotenv import load_dotenv
+    scout_env = os.environ.get("SCOUT_ENV") or str(_SCOUT_ENV)
+    if Path(scout_env).exists():
+        load_dotenv(scout_env)
     local = Path(".env")
     if local.exists():
         load_dotenv(local)
-    if not os.environ.get("AZURE_OPENAI_API_KEY"):
-        scout_env = os.environ.get("SCOUT_ENV") or str(_SCOUT_ENV)
-        if Path(scout_env).exists():
-            load_dotenv(scout_env)
     if not os.environ.get("AZURE_OPENAI_API_KEY"):
         _err("No Azure OpenAI credentials found. Run: scout setup")
         sys.exit(1)
