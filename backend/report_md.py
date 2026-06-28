@@ -120,8 +120,6 @@ def _analysis_quality_section(aq: dict) -> list[str]:
 
 
 def report_to_markdown(report: dict, source: str = "") -> str:
-    score = report.get("score")
-    score_str = "n/a" if score is None else f"{score}/10"
     stats = report.get("stats", {})
     all_findings = report.get("recommendations", [])
 
@@ -129,7 +127,6 @@ def report_to_markdown(report: dict, source: str = "") -> str:
         "# Scout Code Review Report",
         "",
         f"**Verdict:** {_VERDICT.get(report.get('verdict'), report.get('verdict'))}  ",
-        f"**Score:** {score_str}  ",
     ]
     if source:
         lines.append(f"**Source:** `{source}`  ")

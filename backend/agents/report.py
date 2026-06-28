@@ -86,7 +86,6 @@ def report_node(state: ReviewState) -> ReviewState:
         payload = {
             "findings": findings,
             "verdict": verdict,
-            "score": score,
             "dropped_by_critic": state.get("critique", {}).get("dropped", []),
         }
         prompt = load_prompt("report") + "\n\nINPUT:\n" + json.dumps(payload, indent=2)
@@ -98,7 +97,7 @@ def report_node(state: ReviewState) -> ReviewState:
     if not summary:
         n = len(findings)
         summary = (
-            f"Review complete: {n} verified finding(s). Verdict: {verdict}, score {score}/10."
+            f"Review complete: {n} verified finding(s). Verdict: {verdict}."
             if n else f"No issues found in the {reviewed} source file(s) reviewed."
         )
     summary += coverage_note
