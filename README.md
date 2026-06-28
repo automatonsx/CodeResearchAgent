@@ -5,8 +5,10 @@
 > that blocks critical violations before they land.
 
 Scout is **not a linter wrapper.** Every finding is grounded in real tool output
-(`ruff` / `ast` / generic scanner), verified by a **Critic loop**, and cited against a
-curated best-practices corpus — so hallucinated findings get dropped before you see them.
+(`ruff` / `ast` / `eslint` / `semgrep` / OSV CVE data), verified by a **Critic loop**, and
+cited against a curated best-practices corpus — so hallucinated findings get dropped before
+you see them. **No codebase is ever sent to the LLM:** the deep-analysis agents see only a
+structural skeleton (imports + signatures) and tool findings, never raw file bodies.
 
 ---
 
@@ -29,7 +31,6 @@ curated best-practices corpus — so hallucinated findings get dropped before yo
 | Python 3.10+ | |
 | Node 18+ | only for the web UI frontend |
 | **Azure OpenAI** API key | `gpt-4o` deployment — Scout's LLM backbone |
-| Tavily API key *(optional)* | higher-quality web research in the Architecture agent; free tier works |
 
 ---
 
@@ -45,8 +46,6 @@ cp .env.example .env
 #   Open .env and fill in:
 #     AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT,
 #     AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_MODEL, AZURE_OPENAI_API_VERSION
-#   Optionally add:
-#     TAVILY_API_KEY
 
 # 3. Install Python dependencies
 pip install -r backend/requirements.txt
@@ -124,7 +123,8 @@ scout setup
 
 `scout setup` interactively asks for your Azure OpenAI keys, saves them to
 `~/.scout/.env`, and patches `~/.claude.json` so Scout's MCP server starts
-automatically in every Claude Code session.
+automatically in every Claude Code session. `~/.scout/.env` takes **priority** over
+any `.env` in the repo you're reviewing, so Scout always uses your configured deployment.
 
 **Then open any repo in Claude Code and say:**
 
@@ -162,39 +162,62 @@ Reports are saved to `reports/`.
 
 ---
 
+## Tuning (environment variables)
+
+All LLM-facing steps are **batched** (`backend/agents/_batch.py`): size-bounded, run
+concurrently, with self-healing split-on-failure (a failing batch bisects; worst case one
+item is dropped and logged). Calls use JSON mode with a bounded `max_tokens`. Knobs:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SCOUT_MAX_FILES` | `80` | Max source files reviewed per run |
+| `SCOUT_BATCH_WORKERS` | `4` | Max concurrent LLM calls (primary 429 lever) |
+| `SCOUT_BATCH_ITEMS` | `8` | Max files packed into one LLM batch |
+| `SCOUT_MAX_ITERATIONS` | `0` | Critic re-check loop passes (`0` = off) |
+| `SCOUT_MAX_OUTPUT_TOKENS` | `4000` | Bounded output tokens per LLM call |
+| `SCOUT_GENERIC_REVIEW` | `0` | `1` enables the LLM fallback that reads raw non-Python files |
+| `SCOUT_SEMGREP_CONFIG` | `auto` | semgrep ruleset for non-Python/JS languages |
+
+---
+
 ## How the agents work
 
 ```
-Context → Code-Quality → Security → Architecture → Test-Review
-       → Grounding → Critic ──(recheck, max 2)──┐
-                         └──(validated)──► Report → Standards → END
+Context → Code-Quality → Security → Dependency → Architecture → Test-Review
+       → Grounding → Critic ──(recheck)──┐
+                         └──(validated)──► Report → END
 ```
+
+The graph itself ends at **Report**. The **Standards** step (which writes `SKILL.md`)
+runs *after* the graph in `run_standards()` — that's the path the onboarding flow uses.
 
 | Agent | Job | Grounded by |
 |---|---|---|
 | **Context** | Detect languages, walk source files | file system |
-| **Code-Quality** | Smells, complexity, dead code | `ruff` + `ast` (Python); LLM (other langs) |
-| **Security** | Secrets, injection, unsafe calls | `ruff` bandit rules + generic pattern scanner |
-| **Architecture** | Separation of concerns, design patterns | web research + KB |
-| **Test-Review** | Coverage gaps, missing edge cases | LLM |
+| **Code-Quality** | Smells, complexity, dead code | `ruff` bug rules `F,B,C90,E7,E9` + `ast` (Python); `eslint` (JS/TS/Vue); `semgrep` (other langs, when installed) |
+| **Security** | Secrets, injection, unsafe calls | `ruff` bandit (`S`) rules + `semgrep` |
+| **Dependency** | Known CVEs in declared dependencies | **OSV.dev** API (pinned `requirements*.txt`) + `npm audit` (JS lockfile) — no LLM; cites OWASP A06 |
+| **Architecture** | Separation of concerns, design patterns | structural skeleton + best-practices corpus + KB |
+| **Test-Review** | Coverage gaps, missing edge cases | structural skeleton + LLM |
 | **Grounding** | Attach best-practice citation to each finding | ChromaDB corpus |
 | **Critic** | Re-open each `file:line`, drop false positives | re-reads actual code |
-| **Report** | Prioritize, score, verdict | — |
-| **Standards** | Extract project rules → SKILL.md | verified findings |
+| **Report** | Prioritize, verdict | — |
+| **Standards** | Extract project rules → SKILL.md *(post-graph, onboard only)* | verified findings |
 
 **Languages supported:** any.
-- **Python** — `ruff` + `ast` (deeply tool-grounded)
-- **JS/TS** — `eslint` (optional) + generic scanner
-- **Java, Go, Kotlin, Ruby, PHP, C/C++, Rust, Swift, …** — generic scanner + LLM (Critic-verified)
+- **Python** — `ruff` (bug rules only — pure-formatting `E*`/`W*` are excluded as noise) + `ast` (deeply tool-grounded)
+- **JS / TS / React / Vue / Next.js** — `eslint` (bundled env includes typescript-eslint, eslint-plugin-react, eslint-plugin-vue; `.vue` supported)
+- **Java, Go, Kotlin, Ruby, PHP, C/C++, Rust, Swift, …** — `semgrep` when installed; optional LLM fallback via `SCOUT_GENERIC_REVIEW=1` (off by default), Critic-verified
 
 ---
 
 ## How Scout avoids hallucinations
 
-1. **No finding without a `file:line`** — the Critic re-opens every finding in the actual file or drops it.
-2. **Tool facts vs. LLM opinion** — `ruff`/`ast` results are ground truth; LLM findings must quote code or get dropped.
-3. **Every finding cites a best practice** from the curated ChromaDB corpus.
-4. **Read-only guard** — after analysis, Scout asserts no source file was modified (`git diff`). Raises an error if violated.
+1. **No codebase is sent to the LLM** — Architecture & Test-Review see only a *structural skeleton* (imports + class/function signatures + line counts + first-line docstrings; Python via stdlib `ast`, other languages via tree-sitter, unsupported languages fall back to a small text head). Code-Quality & Security send only tool findings plus a tiny ±2-line snippet (each line capped at 300 chars) — never whole files.
+2. **No finding without a `file:line`** — the Critic re-opens every finding in the actual file or drops it.
+3. **Tool facts vs. LLM opinion** — `ruff`/`ast`/`eslint`/`semgrep`/OSV results are ground truth; LLM findings must quote code or get dropped.
+4. **Every finding cites a best practice** from the curated ChromaDB corpus.
+5. **Read-only guard** — after analysis, Scout asserts no source file was modified (`git diff`). Raises an error if violated.
 
 ---
 
@@ -210,9 +233,12 @@ Context → Code-Quality → Security → Architecture → Test-Review
 │   ├── llm.py               # Azure OpenAI client
 │   ├── report_md.py         # Markdown report renderer
 │   ├── standards_skill.py   # SKILL.md renderer
-│   ├── agents/              # context, code_quality, security, architecture,
-│   │                        # test_review, grounding, critic, report, standards
-│   ├── tools/               # ruff_runner, generic_scan, ast_utils, web_research
+│   ├── agents/              # context, code_quality, security, dependency,
+│   │                        # architecture, test_review, grounding, critic,
+│   │                        # report, standards, _batch (concurrent batching)
+│   ├── tools/               # ruff_runner, eslint_runner, semgrep_runner,
+│   │                        # generic_scan, ast_utils, code_skeleton (tree-sitter),
+│   │                        # dep_audit (OSV + npm audit)
 │   └── corpus/              # best_practices.json + build_index.py (ChromaDB)
 ├── frontend/                # React (Vite) — streaming review UI
 ├── scripts/
@@ -242,4 +268,5 @@ Context → Code-Quality → Security → Architecture → Test-Review
 ## Tech stack
 
 **React** (Vite) · **FastAPI** · **LangGraph + LangChain** · **Azure OpenAI** `gpt-4o` ·
-**ruff / Python ast** · **ChromaDB** · **MCP** (Model Context Protocol) · **GitPython**
+**ruff / Python ast** · **tree-sitter** (language-pack skeletons) · **eslint / semgrep** ·
+**OSV.dev** (dependency CVEs) · **ChromaDB** · **MCP** (Model Context Protocol) · **GitPython**

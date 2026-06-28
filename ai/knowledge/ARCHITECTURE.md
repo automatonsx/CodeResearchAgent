@@ -2,11 +2,11 @@
 
 > Auto-maintained from merges to `main`. Source of truth: [`architecture.json`](architecture.json). Edits here are regenerated — change the JSON or let a merge update it.
 
-_Last updated: 2026-06-25_
+_Last updated: 2026-06-28_
 
 ## Overview
 
-Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph that includes context extraction, code-quality analysis, security checks, grounding findings in a best-practices corpus, and a Critic loop for verification and re-checking. The Architecture & Design agent has been enhanced to include web-research-enriched reviews, expanding its applicability to external repositories. A new Test Coverage agent has been introduced to identify missing tests and suggest actionable test cases. The system now integrates web research across multiple agents, enabling recommendations grounded in both the project's knowledge base and external resources. The report generation process has been updated to include categorized findings and web research sources.
+Scout is a research-aware code review assistant designed to analyze repositories or pull request diffs and produce a prioritized, cited review report. Its architecture is centered around a multi-agent graph: context extraction, code-quality analysis, security checks, a dependency-vulnerability (CVE) audit, architecture & design review, test-coverage review, grounding findings in a best-practices corpus, and a Critic verification step. All best-practice citations come from a curated local `best_practices.json` corpus indexed in ChromaDB — there is no live web search (Tavily and all web-research paths have been removed). No raw source code is sent to the LLM: the architecture and test agents review a structural skeleton (imports + class/function signatures + line counts) extracted via stdlib `ast` (Python) or tree-sitter (other languages), while the tool agents send only tool findings plus tiny ±2-line snippets. All LLM-facing steps are batched with concurrent, self-healing split-on-failure for cost and scale. The report groups findings into categorized sections (security, dependencies, code, design, testing).
 
 ## Modules
 
@@ -46,18 +46,20 @@ Orchestrates the backend, including API endpoints, agent graph execution, and sh
 - Appears to integrate Azure OpenAI for LLM-based tasks.
 
 ### `backend/agents`
-Implements the core agents for context extraction, code quality, security, grounding, critique, architecture/design review, test coverage, and report generation.
+Implements the core agents for context extraction, code quality, security, dependency-vulnerability audit, architecture/design review, test coverage, grounding, critique, and report generation.
 
-**Key files:** `backend/agents/__init__.py`, `backend/agents/_generic.py`, `backend/agents/_snippet.py`, `backend/agents/_structure.py`, `backend/agents/code_quality.py`, `backend/agents/context.py`, `backend/agents/critic.py`, `backend/agents/grounding.py`, `backend/agents/report.py`, `backend/agents/security.py`, `backend/agents/architecture.py`, `backend/agents/test_review.py`
+**Key files:** `backend/agents/__init__.py`, `backend/agents/_batch.py`, `backend/agents/_generic.py`, `backend/agents/_snippet.py`, `backend/agents/_structure.py`, `backend/agents/code_quality.py`, `backend/agents/context.py`, `backend/agents/critic.py`, `backend/agents/dependency.py`, `backend/agents/grounding.py`, `backend/agents/report.py`, `backend/agents/security.py`, `backend/agents/architecture.py`, `backend/agents/test_review.py`
 
 **Patterns / conventions:**
 - Agent-based modular design
 - Separation of concerns
+- Shared batching with self-healing split-on-failure (`_batch.py`) for all LLM-facing agents
 
 **Design decisions:**
-- Introduced a new Test Coverage agent to identify missing tests and suggest actionable test cases.
-- Enhanced the Architecture & Design agent to include web-research-enriched reviews, making it applicable to external repositories.
-- Appears to use a graph-based orchestration for agent communication.
+- Added a Dependency Audit agent (`dependency.py`) — CVE scan of declared deps via OSV.dev (Python) + `npm audit` (JS), no LLM, cites OWASP A06.
+- The Architecture & Test agents review a structural skeleton (imports + signatures + line counts), never raw file bodies, to keep token cost bounded.
+- Citations are grounded only in the `best_practices.json` corpus — web research has been removed.
+- Uses a graph-based LangGraph orchestration for agent communication.
 
 ### `backend/corpus`
 Manages the best-practices corpus used for grounding findings.
@@ -79,8 +81,10 @@ Defines the execution graph for orchestrating agents in the multi-agent workflow
 - Graph-based orchestration
 
 **Design decisions:**
-- Added the Test Coverage agent to the graph, positioned after the Architecture agent and before the Grounding agent.
-- Updated the Architecture agent's description to reflect its web-research-enriched capabilities.
+- The review chain is: context → code_quality → security → dependency → architecture → test_review → grounding → critic → report (5 review agents).
+- The new Dependency agent runs after Security and before Architecture.
+- The Critic re-check loop is the agentic twist, but defaults to off (`MAX_ITERATIONS = 0`, `SCOUT_MAX_ITERATIONS`).
+- The `standards` step is not in the graph — it runs after the graph in `run_standards()` to synthesize SKILL.md.
 
 ### `backend/knowledge`
 Manages the project's knowledge base, including retrieval of relevant modules for reviews.
@@ -95,7 +99,7 @@ Manages the project's knowledge base, including retrieval of relevant modules fo
 - Supports direct module lookup for KB-grounded reviews.
 
 ### `backend/report_md.py`
-Generates a final review report in Markdown format, including categorized findings and web research sources.
+Generates a final review report in Markdown format, including categorized findings.
 
 **Key files:** `backend/report_md.py`
 
@@ -103,9 +107,8 @@ Generates a final review report in Markdown format, including categorized findin
 - Markdown rendering for reports
 
 **Design decisions:**
-- Added categorized sections for findings (e.g., security, design, testing).
-- Included a dedicated section for web research sources in the final report.
-- Enhanced finding blocks with severity badges and detailed evidence.
+- Categorized sections for findings: 🔒 Security, 📦 Dependencies, 💻 Code Quality, 🏗️ Architecture & Design, 🧪 Test Coverage.
+- Enhanced finding blocks with severity badges and corpus citations.
 
 ### `backend/requirements.txt`
 Specifies Python dependencies for the backend.
@@ -116,8 +119,9 @@ Specifies Python dependencies for the backend.
 - Dependency management
 
 **Design decisions:**
-- Added `tavily-python` as an optional dependency for high-quality web research.
-- Documented fallback mechanisms for web research when Tavily is unavailable.
+- Added `tree-sitter` and `tree-sitter-language-pack` for language-agnostic structural skeleton extraction.
+- Dependency audit uses the OSV.dev HTTP API (stdlib `urllib`) + `npm audit` — `pip-audit` is not used.
+- semgrep remains optional (not well-supported on native Windows); ruff's bandit (S) rules + AST cover security if it's absent.
 
 ### `backend/state.py`
 Defines the shared state structure for the multi-agent workflow.
@@ -128,20 +132,21 @@ Defines the shared state structure for the multi-agent workflow.
 - Shared state management
 
 **Design decisions:**
-- Added a `web_research` field to the state to store web research results for reuse across agents.
+- `ReviewState` is a `TypedDict(total=False)` so each node returns only the keys it changed.
+- Loop guard `MAX_ITERATIONS` defaults to `0` (Critic re-check off by default; `SCOUT_MAX_ITERATIONS`).
 
 ### `backend/tools`
-Provides utility functions and tool integrations for static analysis, diff parsing, and web research.
+Provides ground-truth tool runners and utilities for static analysis, structural-skeleton extraction, dependency auditing, and diff parsing.
 
-**Key files:** `backend/tools/__init__.py`, `backend/tools/ast_utils.py`, `backend/tools/diff_utils.py`, `backend/tools/eslint_runner.py`, `backend/tools/generic_scan.py`, `backend/tools/git_utils.py`, `backend/tools/ruff_runner.py`, `backend/tools/semgrep_runner.py`, `backend/tools/web_research.py`
+**Key files:** `backend/tools/__init__.py`, `backend/tools/ast_utils.py`, `backend/tools/code_skeleton.py`, `backend/tools/dep_audit.py`, `backend/tools/diff_utils.py`, `backend/tools/eslint_runner.py`, `backend/tools/generic_scan.py`, `backend/tools/git_utils.py`, `backend/tools/ruff_runner.py`, `backend/tools/semgrep_runner.py`
 
 **Patterns / conventions:**
-- Tool-specific wrappers and utilities
+- Tool-specific wrappers and utilities ("the LLM proposes, these verify")
 
 **Design decisions:**
-- Introduced a new `web_research.py` module to fetch web and research resources for agents.
-- Supports integration with Tavily, Semantic Scholar, and ArXiv for web research.
-- Appears to detect frameworks and generate targeted queries for web research.
+- `code_skeleton.py` extracts a language-agnostic structural skeleton (imports + class/function names + LOC) via tree-sitter, with Python handled by stdlib `ast` (`ast_utils.python_skeleton`) — so raw file bodies never reach the LLM.
+- `dep_audit.py` audits declared dependencies for CVEs: Python pins via the OSV.dev API, JS via `npm audit`.
+- The `web_research.py` module has been removed — there is no web search.
 
 ### `data`
 Holds sample repositories and diffs for testing and demonstration purposes.
@@ -191,11 +196,12 @@ Implements the user interface for inputting repositories/diffs and viewing revie
 ### `prompts`
 Stores LLM prompt templates for various agents.
 
-**Key files:** `prompts/code_quality.md`, `prompts/generic_review.md`, `prompts/knowledge_extractor.md`, `prompts/report.md`, `prompts/security.md`, `prompts/architecture.md`, `prompts/test_review.md`
+**Key files:** `prompts/code_quality.md`, `prompts/generic_review.md`, `prompts/knowledge_extractor.md`, `prompts/report.md`, `prompts/security.md`, `prompts/architecture.md`, `prompts/test_review.md`, `prompts/standards.md`
 
 **Patterns / conventions:**
 - Prompt engineering
 
 **Design decisions:**
-- Updated the Architecture prompt to include web research as an evidence base alongside the KB.
-- Added a new prompt template (`test_review.md`) tailored for the Test Coverage agent, emphasizing actionable test suggestions.
+- The Architecture prompt grounds evidence in the KB and the `best_practices.json` corpus only — no web research.
+- `test_review.md` drives the Test Coverage agent toward actionable test suggestions.
+- `standards.md` synthesizes verified findings into repo-specific DO/DON'T rules for SKILL.md.

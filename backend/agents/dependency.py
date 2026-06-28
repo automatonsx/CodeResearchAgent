@@ -1,6 +1,6 @@
 """Dependency Audit agent — known CVEs in declared dependencies.
 
-Ground truth: pip-audit (Python) + npm audit (JS). No LLM — findings are
+Ground truth: OSV.dev advisory API (Python pins) + npm audit (JS). No LLM — findings are
 deterministic facts (CVE id + fix version), so this step is free (zero tokens)
 and cannot hallucinate. Each finding cites OWASP A06 (Vulnerable & Outdated
 Components).

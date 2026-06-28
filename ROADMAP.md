@@ -3,19 +3,27 @@
 Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stretch).
 
 ## ✅ Done
-- LangGraph engine: Context → Code-Quality → Security → Grounding → Critic ⇄ Report.
+- LangGraph engine: Context → Code-Quality → Security → Dependency → Architecture →
+  Test-Review → Grounding → Critic ⇄ Report (5 review agents).
 - Inputs: local repo folder, **public GitHub URL** (shallow clone), PR diff text.
-- Any language: Python tool-grounded (ruff + ast); others via secret/pattern scanner +
-  quote-grounded LLM reviewer the Critic verifies.
+- **Multi-language linting (tool-grounded):** Python via ruff bug-rules (F, B, C90, E7,
+  E9) + ast; JS/TS/React/Vue via **eslint**; other languages via **semgrep**. The generic
+  LLM reviewer is opt-in only (`SCOUT_GENERIC_REVIEW=1`).
+- **Dependency / CVE audit (no LLM):** OSV.dev for Python `==` pins + `npm audit` for JS;
+  cites OWASP A06, rendered in a "📦 Dependencies" section.
+- **No codebase sent to the LLM:** Architecture & Test-Review reason over structural
+  skeletons (ast for Python, tree-sitter for others) + docstrings; Code-Quality/Security
+  send tool findings + tiny snippets only.
+- **Cost/scale:** batched, size-bounded, concurrent, self-healing LLM calls; tunable via
+  `SCOUT_MAX_FILES`/`SCOUT_BATCH_WORKERS`/`SCOUT_BATCH_ITEMS`/`SCOUT_MAX_OUTPUT_TOKENS`/etc.
 - Grounding: ~13-entry best-practices corpus in ChromaDB (keyword fallback).
 - Self-correcting Critic: drops unverifiable/duplicate/hallucinated findings; **re-check
-  loop** fires on hallucination/low-confidence (max 2).
-- Report: prioritized, scored, verdict, **Markdown export** (`reports/`) + JSON.
+  loop** fires on hallucination/low-confidence (`SCOUT_MAX_ITERATIONS`, default 0).
+- Report: prioritized, verdict, analysis-quality grade, **Markdown export** (`reports/`)
+  + JSON. (Numeric score removed.)
 - FastAPI (`/review`, `/review/stream`) + React glass-box UI.
 - Skills: `review-repo`, `build-corpus`. Docs, sample data, Dockerfile.
 - **Eval harness**: `evals/score.py` — recall on planted issues + Critic ablation.
-- **eslint** ground truth for JS/TS (optional, like semgrep; bundled flat config in
-  `backend/tools/eslint_env`). Falls back to the LLM reviewer if not installed.
 
 ## 🔜 Next (near-term gaps)
 - [ ] **Verify Docker** — build & run `deployment/Dockerfile` end-to-end (also bundle the
@@ -41,7 +49,8 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 - [ ] Real research corpus (arxiv/IEEE) instead of the curated mini-corpus.
 - [x] GitHub Action that reviews the PR + posts a summary comment
       (`.github/workflows/pr-checks.yml`). Next: **inline** line comments.
-- [ ] Large-repo chunking (beyond the ~40-file cap).
+- [ ] Raise/remove the file cap for very large repos (batching is in; default cap is
+      now `SCOUT_MAX_FILES`=80, not all files reviewed by default).
 - [ ] "Learns team preferences" memory; PDF export; auth/multi-user.
 - [ ] Observability: token/cost metrics, traces.
 

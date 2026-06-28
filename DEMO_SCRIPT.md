@@ -5,9 +5,9 @@ Goal: prove it's a **tool-grounded, self-correcting, cited** reviewer — not a 
 | Time | Beat | Say / show |
 |------|------|------------|
 | **0:00–1:00** | **Problem + user** | "A single LLM 'review this' hallucinates issues and gives unsourced advice. Engineers need findings they can trust." |
-| **1:00–3:00** | **Architecture** | Walk the graph: Context → Code-Quality → Security → Grounding → Critic ⇄ re-check → Report. Emphasize **tools = ground truth, Critic = verifier**, and the **research citations**. |
+| **1:00–3:00** | **Architecture** | Walk the graph: Context → Code-Quality → Security → Dependency → Architecture → Test-Review → Grounding → Critic ⇄ re-check → Report. Emphasize **tools = ground truth, Critic = verifier**, the **research citations**, and that **no codebase is sent to the LLM** — architecture/test-review send structural skeletons (ast / tree-sitter) + docstrings, code-quality/security send tool findings + tiny ±2-line snippets. |
 | **3:00–5:00** | **Live run** | Run on `data/sample_repo` (or paste `data/sample.diff`). Show the **glass-box** lighting up; point at the **Critic drop/flag stats**; trigger the **`review-repo` Skill**. |
-| **5:00–6:00** | **Report** | Findings sorted by severity, each with `file:line`, the **fix**, **🔧 tool evidence** (S602/B006/…), and a **📚 best-practice citation**. Show the verdict + score. |
+| **5:00–6:00** | **Report** | Findings sorted by severity, each with `file:line`, the **fix**, **🔧 tool evidence** (S602/B006/…), and a **📚 best-practice citation**. Call out the **📦 Dependencies** section (OSV.dev + npm audit, no LLM). Show the verdict + analysis grade. |
 | **6:00–7:00** | **AI usage + limits** | AI-generated vs. human-designed (AI_USAGE.md). Name 2–3 limitations (LIMITATIONS.md). |
 
 ## Pre-demo checklist

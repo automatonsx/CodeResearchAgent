@@ -10,7 +10,9 @@ Declare every reused repo, template, tool, or snippet, and list the custom featu
 | [ruff](https://docs.astral.sh/ruff/) | Ground-truth lint (E/F/W/C90/B) + bandit (S) security | MIT |
 | [eslint](https://eslint.org/) + `@eslint/js` | Ground-truth lint for JS/TS (optional) | MIT |
 | [semgrep](https://semgrep.dev/) (optional) | Additional security scanning | LGPL-2.1 |
-| Python `ast` (stdlib) | Complexity / docstring / mutable-default checks | PSF |
+| Python `ast` (stdlib) | Complexity / docstring / mutable-default checks · Python skeletons | PSF |
+| [tree-sitter](https://tree-sitter.github.io/) + `tree-sitter-language-pack` | Structural skeletons for non-Python languages (architecture/test review) | MIT |
+| [OSV.dev](https://osv.dev/) API + `npm audit` | Dependency CVE auditing (no LLM) | Apache-2.0 / npm |
 | [ChromaDB](https://www.trychroma.com/) | Best-practices corpus (RAG citations) | Apache-2.0 |
 | [GitPython](https://gitpython.readthedocs.io/) | Diff handling support | BSD-3 |
 | [FastAPI](https://fastapi.tiangolo.com/) | Backend REST + streaming | MIT |
@@ -22,8 +24,9 @@ McCabe "A Complexity Measure" (1976), Bandit rules, Google Python Style Guide,
 Python Logging HOWTO. See [backend/corpus/best_practices.json](backend/corpus/best_practices.json).
 
 ## Our custom features (built by Team 7)
-1. **Tool-grounded findings** — `ruff`/`ast`/`semgrep` are ground truth; the LLM only
-   structures, explains, and scores. Each finding keeps its `tool_evidence`.
+1. **Tool-grounded findings** — `ruff`/`ast`/`eslint`/`semgrep` (plus OSV.dev + npm
+   audit for dependencies) are ground truth; the LLM only structures and explains.
+   Each finding keeps its `tool_evidence`.
 2. **Self-correcting Critic loop** — re-opens every `file:line`, drops unverifiable /
    duplicate findings, re-checks low-confidence ones (max 2).
 3. **Research-grounded citations** — every finding cites a best-practice principle from a
@@ -31,4 +34,4 @@ Python Logging HOWTO. See [backend/corpus/best_practices.json](backend/corpus/be
 4. **Two inputs, one engine** — repo folder OR PR diff (diff reconstructed to a temp tree
    so the same tools run on changed code).
 5. **Glass-box orchestration view** — live agent graph + Critic drop/flag stats.
-6. **Prioritized, scored report** — severity ordering, 0–10 score, verdict.
+6. **Prioritized report** — severity ordering, verdict, and an analysis-quality grade.
