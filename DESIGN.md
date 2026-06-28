@@ -66,8 +66,9 @@ facts vs. LLM opinion separated; every finding cited; Critic loop removes false 
 - Scraping arxiv/IEEE/ACM — we use a curated mini-corpus instead. (Web search was
   prototyped and then removed entirely; grounding is corpus-only.)
 - GitHub Action / inline PR comments; "learns team preferences"; PDF export; auto-merge.
-- Large-repo chunking (soft ~80-file cap, `SCOUT_MAX_FILES`); LLM steps are batched
-  (`_batch.py`) rather than chunked into a single windowed pass.
+- Large-repo handling: all files are reviewed by default; LLM steps are batched
+  (`_batch.py`) so coverage scales safely. `SCOUT_MAX_FILES` is an optional cap for
+  cheaper/faster runs, not the default.
 
 **Since shipped (beyond v1):** Python (ruff narrowed to bug rules `F,B,C90,E7,E9` + ast),
 JS/TS/React/Vue via **eslint**, other languages via **semgrep** when installed, and a

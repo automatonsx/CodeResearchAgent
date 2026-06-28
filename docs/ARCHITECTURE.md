@@ -272,7 +272,7 @@ Environment knobs (all optional):
 
 | Var | Default | Meaning |
 |---|---|---|
-| `SCOUT_MAX_FILES` | `80` | Max files reviewed (size cap; raise for deeper, costlier reviews) |
+| `SCOUT_MAX_FILES` | `0` (all) | Cap on files reviewed; `0`/unset reviews every file (set a positive cap for cheaper runs) |
 | `SCOUT_BATCH_WORKERS` | `4` | Max concurrent LLM calls — the primary 429 lever |
 | `SCOUT_BATCH_ITEMS` | `8` | Max items per batch |
 | `SCOUT_MAX_ITERATIONS` | `0` | Critic re-check loop count (`0` = loop off) |

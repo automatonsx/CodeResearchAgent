@@ -170,7 +170,7 @@ item is dropped and logged). Calls use JSON mode with a bounded `max_tokens`. Kn
 
 | Variable | Default | What it does |
 |---|---|---|
-| `SCOUT_MAX_FILES` | `80` | Max source files reviewed per run |
+| `SCOUT_MAX_FILES` | `0` (all) | Cap on files reviewed; `0`/unset reviews **every** source file |
 | `SCOUT_BATCH_WORKERS` | `4` | Max concurrent LLM calls (primary 429 lever) |
 | `SCOUT_BATCH_ITEMS` | `8` | Max files packed into one LLM batch |
 | `SCOUT_MAX_ITERATIONS` | `0` | Critic re-check loop passes (`0` = off) |

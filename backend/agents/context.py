@@ -25,9 +25,9 @@ _CODE_EXT = {
 }
 _SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", ".vite", "vendor"}
 _SKIP_SUBSTR = (".min.", ".bundle.")
-# Soft cap on files analyzed. Cost/time scale with this directly, so the default is
-# kept moderate; raise via SCOUT_MAX_FILES for deeper (more expensive) reviews.
-_MAX_FILES = int(os.environ.get("SCOUT_MAX_FILES", "80"))
+# Files analyzed. Default reviews ALL source files (full coverage). Set SCOUT_MAX_FILES
+# to a positive number to cap it (cheaper/faster on very large repos); 0 or unset = all.
+_MAX_FILES = int(os.environ.get("SCOUT_MAX_FILES", "0"))
 
 
 _LANG_BY_EXT = {".py": "python", ".js": "js", ".jsx": "js", ".mjs": "js", ".cjs": "js",
@@ -106,7 +106,8 @@ def context_node(state: ReviewState) -> ReviewState:
     py_all = [f for f in files if Path(f).suffix.lower() in _PY]
     other_all = [f for f in files if Path(f).suffix.lower() not in _PY]
     ordered = py_all + other_all
-    reviewed_files = ordered[:_MAX_FILES]
+    # Default (_MAX_FILES <= 0): review ALL files. Positive value caps for cost/speed.
+    reviewed_files = ordered if _MAX_FILES <= 0 else ordered[:_MAX_FILES]
     py_files = [f for f in reviewed_files if Path(f).suffix.lower() in _PY]
     other_files = [f for f in reviewed_files if Path(f).suffix.lower() not in _PY]
 

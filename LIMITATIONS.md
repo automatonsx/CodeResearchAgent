@@ -3,9 +3,9 @@
 Honest statement of what Scout does not do and where it can fail. (Stating these scores.)
 
 ## Out of scope (by design — see the roadmap in DESIGN.md §10)
-- **Not all files are reviewed by default.** A file cap applies (`SCOUT_MAX_FILES`,
-  default 80) to bound cost; larger repos are sampled. Raise it for deeper (more
-  expensive) reviews.
+- **Full coverage by default; cost scales with repo size.** Every source file is
+  reviewed by default. On very large repos that means more tokens and time — set
+  `SCOUT_MAX_FILES` to a positive number to cap it when you want a cheaper/faster pass.
 - **Grounding depth varies by language.** Python (ruff + ast) and JS/TS/React/Vue
   (eslint) are deeply tool-grounded. Other languages (Go/Java/Ruby/PHP/C…) rely on
   semgrep — and the generic LLM reviewer is opt-in only (`SCOUT_GENERIC_REVIEW=1`), so by

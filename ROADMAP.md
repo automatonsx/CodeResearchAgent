@@ -49,8 +49,8 @@ Where we are vs. the full vision in `CODE_REVIEW_PLAN.md` (and the 12-agent stre
 - [ ] Real research corpus (arxiv/IEEE) instead of the curated mini-corpus.
 - [x] GitHub Action that reviews the PR + posts a summary comment
       (`.github/workflows/pr-checks.yml`). Next: **inline** line comments.
-- [ ] Raise/remove the file cap for very large repos (batching is in; default cap is
-      now `SCOUT_MAX_FILES`=80, not all files reviewed by default).
+- [x] Full-repo coverage by default (all files reviewed; batching keeps it safe).
+      `SCOUT_MAX_FILES` is now an optional cap for cheaper runs, not the default.
 - [ ] "Learns team preferences" memory; PDF export; auth/multi-user.
 - [ ] Observability: token/cost metrics, traces.
 
