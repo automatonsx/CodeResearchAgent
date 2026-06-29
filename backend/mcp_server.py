@@ -132,6 +132,7 @@ def onboard_repo(
     review_path   = result.get("review_path", "")
     skill_path    = result.get("skill_saved_to", "")
     report_path   = result.get("report_saved_to", "")
+    report_html   = result.get("report_html_saved_to", "")
     final_report  = result.get("final_report", {})
     standards     = result.get("standards", {})
 
@@ -173,6 +174,10 @@ def onboard_repo(
         lines.append("  _Full findings with citations and analysis quality grade_")
     else:
         lines.append("- **scout-report.md** → _(not written — check stderr)_")
+
+    if report_html:
+        lines.append(f"- **scout-report.html** → `{report_html}`")
+        lines.append("  _Branded HTML report — open in a browser or print to PDF_")
 
     if install_hooks:
         for h in hooks_installed:

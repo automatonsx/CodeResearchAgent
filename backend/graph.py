@@ -222,11 +222,21 @@ def run_standards(
         source=source,
     )
 
+    # Also emit a polished, AutomatonsX-branded HTML version of the report so it can
+    # be opened in a browser or shared/printed alongside the Markdown.
+    from .report_html import save_report_html_to_dir
+    report_html_path = save_report_html_to_dir(
+        final.get("final_report", {}),
+        dest_dir=str(Path(dest) / ".claude"),
+        source=source,
+    )
+
     return {
         "final_report": final.get("final_report", {}),
         "standards": standards,
         "skill_saved_to": skill_path,
         "report_saved_to": report_path,
+        "report_html_saved_to": report_html_path,
         "review_path": dest,
     }
 

@@ -168,9 +168,12 @@ def cmd_onboard(args) -> None:
     print()
 
     if skill_path:
-        _ok(f"SKILL.md        → {skill_path}")
+        _ok(f"SKILL.md          → {skill_path}")
     if report_path:
-        _ok(f"scout-report.md → {report_path}")
+        _ok(f"scout-report.md   → {report_path}")
+    report_html = result.get("report_html_saved_to")
+    if report_html:
+        _ok(f"scout-report.html → {report_html}  (open in a browser)")
 
     if not args.skip_hooks and repo_path:
         installed = install_hooks(repo_path)
