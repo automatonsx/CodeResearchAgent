@@ -24,6 +24,9 @@ _CATEGORY_META = {
 }
 _CAT_ORDER = ["security", "dependency", "design", "testing", "code"]
 _GRADE_CLASS = {"A": "gA", "B": "gB", "C": "gC", "D": "gD"}
+# Severity → color, in priority order (matches the finding-card accents).
+_SEV_ORDER = [("critical", "#d12b2b"), ("major", "#e07b18"),
+              ("minor", "#c9a227"), ("suggestion", "#4FB6FF")]
 
 # AutomatonsX A^X logo (inline SVG)
 _LOGO = (
@@ -120,6 +123,43 @@ def _quality_html(aq: dict) -> str:
     )
 
 
+def _severity_chart_html(findings: list[dict]) -> str:
+    """A self-contained donut (CSS conic-gradient) of findings by severity + legend."""
+    counts = {k: 0 for k, _ in _SEV_ORDER}
+    for f in findings:
+        s = f.get("severity", "minor")
+        counts[s if s in counts else "minor"] += 1
+    total = sum(counts.values())
+    if total == 0:
+        return ""
+
+    segs, start = [], 0.0
+    for sev, color in _SEV_ORDER:
+        n = counts[sev]
+        if n == 0:
+            continue
+        end = start + n / total * 360
+        segs.append(f"{color} {start:.2f}deg {end:.2f}deg")
+        start = end
+    grad = "conic-gradient(" + ", ".join(segs) + ")"
+
+    legend = []
+    for sev, color in _SEV_ORDER:
+        n = counts[sev]
+        pct = n / total * 100
+        legend.append(
+            f'<li><span class="sw" style="background:{color}"></span>'
+            f'<span class="ln">{sev}</span><span class="lc">{n}</span>'
+            f'<span class="lp">{pct:.0f}%</span></li>'
+        )
+    return (
+        '<section class="sevcard"><h2>Findings by severity</h2><div class="sevwrap">'
+        f'<div class="donut" style="background:{grad}"><div class="hole">'
+        f'<span class="tot">{total}</span><span class="tl">findings</span></div></div>'
+        '<ul class="sevleg">' + "".join(legend) + "</ul></div></section>"
+    )
+
+
 def report_to_html(report: dict, source: str = "") -> str:
     stats = report.get("stats", {})
     findings = report.get("recommendations", [])
@@ -151,6 +191,7 @@ def report_to_html(report: dict, source: str = "") -> str:
             f'<span class="count">{n} finding{"s" if n != 1 else ""}</span></h2>{body}</section>'
         )
 
+    sev_chart = _severity_chart_html(findings)
     aq_html = _quality_html(report["analysis_quality"]) if report.get("analysis_quality") else ""
     grade = stats.get("grade", "")
     grade_badge = (f'<span class="grade-pill {_GRADE_CLASS.get(grade, "")}">Grade {_esc(grade)}</span>'
@@ -194,6 +235,21 @@ header h1{{margin:0;font-size:clamp(1.7rem,4vw,2.6rem);letter-spacing:-.02em;}}
 .m-val{{font-size:1.5rem;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;}}
 .m-lab{{font-size:.82rem;font-weight:700;color:var(--ink);margin-top:.15rem;}} .m-sub{{font-size:.75rem;color:var(--muted);}}
 .q-note{{margin:1.1rem 0 0;font-size:.82rem;color:var(--muted);border-left:3px solid var(--sky);padding-left:.8rem;}}
+/* severity donut */
+.sevcard{{background:#fff;border:1px solid var(--line);border-radius:16px;padding:1.6rem 1.8rem;margin-bottom:2rem;}}
+.sevcard h2{{margin:0 0 1.1rem;font-size:1.2rem;color:var(--navy);}}
+.sevwrap{{display:flex;gap:2rem;align-items:center;flex-wrap:wrap;}}
+.donut{{width:158px;height:158px;border-radius:50%;position:relative;flex:none;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:0 10px 26px -18px rgba(35,12,96,.45);}}
+.hole{{position:absolute;inset:25%;background:#fff;border-radius:50%;display:grid;place-items:center;text-align:center;}}
+.hole .tot{{font-size:1.8rem;font-weight:700;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums;}}
+.hole .tl{{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}}
+.sevleg{{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.55rem;min-width:220px;flex:1;}}
+.sevleg li{{display:flex;align-items:center;gap:.7rem;font-size:.95rem;}}
+.sevleg .sw{{width:14px;height:14px;border-radius:4px;flex:none;}}
+.sevleg .ln{{flex:1;text-transform:capitalize;color:var(--ink);}}
+.sevleg .lc{{font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;}}
+.sevleg .lp{{color:var(--muted);width:46px;text-align:right;font-variant-numeric:tabular-nums;}}
 /* category sections */
 .cat{{margin-bottom:2rem;}}
 .cat-h{{display:flex;align-items:baseline;gap:.7rem;font-size:1.25rem;color:var(--navy);
@@ -235,6 +291,7 @@ footer .m{{font-size:.8rem;color:rgba(255,255,255,.6);}}
 
 <main class="wrap">
   <section class="summary"><h2>Executive Summary</h2><p>{_esc(report.get("summary", ""))}</p></section>
+  {sev_chart}
   {aq_html}
   {"".join(sections)}
 </main>
